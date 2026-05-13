@@ -1,8 +1,8 @@
-import { GoogleGenAI } from '@google/genai';
+
 import config from '../config/env';
 import logger from '../utils/logger';
 
-const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
+
 
 export interface RawQuestion {
   question: string;
@@ -56,7 +56,9 @@ RETURN ONLY this JSON array, no markdown, no explanation, no extra text:
 ]`;
 
   try {
-    const response = await ai.models.generateContent({
+    const { GoogleGenAI } = await import('@google/genai');
+  const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
+  const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: { temperature: 0.7, maxOutputTokens: 4096 },
