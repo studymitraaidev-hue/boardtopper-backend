@@ -115,6 +115,10 @@ export const login = asyncHandler(
       ApiResponse.error(res, 'Invalid email or password', 401);
       return;
     }
+    if (!user.emailVerified) {
+      ApiResponse.error(res, 'Please verify your email before logging in.', 403);
+      return;
+    }
 
     const accessToken  = signToken({ id: user.id, email: user.email, plan: user.plan });
     const deviceName   = ((req.headers['user-agent'] ?? 'Unknown Device') as string).slice(0, 150);
