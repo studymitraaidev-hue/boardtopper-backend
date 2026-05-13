@@ -1,10 +1,11 @@
 {
   "name": "boardtopper-backend",
   "version": "1.0.0",
-  "description": "BoardTopper AI \u2014 Maharashtra SSC Class 10 EdTech backend",
+  "description": "BoardTopper AI — Maharashtra SSC Class 10 EdTech backend",
   "main": "dist/server.js",
   "engines": {
-    "node": ">=18.0.0"
+    "node": "18.x",
+    "npm": "9.x"
   },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
