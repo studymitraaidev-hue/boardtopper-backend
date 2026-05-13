@@ -1,8 +1,8 @@
-import { GoogleGenAI } from '@google/genai';
+
 import config from '../config/env';
 import { askGroq } from './groq.service';
 
-const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
+
 
 export interface GeminiRequest {
   systemPrompt: string;
@@ -44,6 +44,8 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
       { role: 'user', parts: userParts },
     ];
 
+    const { GoogleGenAI } = await import('@google/genai');
+    const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
       model:    'gemini-2.0-flash',
       contents,
