@@ -25,14 +25,6 @@ export function requirePro(
     return;
   }
 
-  if (req.user.plan !== 'pro') {
-    ApiResponse.error(
-      res,
-      'This feature requires a Pro plan. Upgrade at boardtopper.ai/pricing.',
-      403
-    );
-    return;
-  }
 
   // Second gate: verify subscription is still active in DB (not expired/cancelled)
   // This is async — we need to use promise-based logic here
@@ -54,3 +46,4 @@ export function requirePro(
       next();
     });
 }
+
