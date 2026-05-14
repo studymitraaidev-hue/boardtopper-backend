@@ -89,7 +89,7 @@ export const createOrder = asyncHandler(
     // 3. Create Razorpay order — amount is server-determined, never from frontend
     const order = await createRazorpayOrder(
       amount,
-      `receipt_${plan}_${userId}_${Date.now()}`
+      `rcpt_${userId.slice(0,8)}_${Date.now()}`
     );
 
     // 4. Persist payment record (status: 'created') with plan info
@@ -333,3 +333,4 @@ export const cancelSubscription = asyncHandler(
     });
   }
 );
+
