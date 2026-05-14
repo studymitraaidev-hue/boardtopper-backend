@@ -49,6 +49,8 @@ export async function createOrder(
   }
 
   if (!response.ok) {
+    const errBody = await response.text();
+    console.error('Razorpay API error:', errBody);
     throw new Error('Payment service unavailable');
   }
 
@@ -119,3 +121,4 @@ export function verifyPaymentSignature(
     return false;
   }
 }
+
