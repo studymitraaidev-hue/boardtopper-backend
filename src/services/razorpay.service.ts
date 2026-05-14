@@ -44,7 +44,7 @@ export async function createOrder(
         receipt,
       }),
     });
-  } catch {
+  } catch (err) { console.error('Razorpay fetch error:', err);
     throw new Error('Payment service unavailable');
   }
 
@@ -82,7 +82,7 @@ export function verifyWebhookSignature(
       Buffer.from(expectedSignature, 'hex'),
       Buffer.from(signature, 'hex')
     );
-  } catch {
+  } catch (err) { console.error('Razorpay fetch error:', err);
     return false;
   }
 }
@@ -114,7 +114,7 @@ export function verifyPaymentSignature(
       Buffer.from(expectedSignature, 'hex'),
       Buffer.from(signature, 'hex')
     );
-  } catch {
+  } catch (err) { console.error('Razorpay fetch error:', err);
     // Buffer length mismatch means invalid signature
     return false;
   }
