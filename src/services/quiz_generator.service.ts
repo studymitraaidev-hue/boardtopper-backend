@@ -109,6 +109,6 @@ RETURN ONLY this JSON array, no markdown, no explanation, no extra text:
 
   } catch (err) {
     logger.error(`[QuizGen] Gemini generation failed for ${chapterName}: ${String(err)}`);
-    throw new Error('Quiz generation failed');
+    try { const g = await askGroq({ systemPrompt: 'Return ONLY a JSON array.', userMessage: prompt }); const p = JSON.parse(g.text.replace(/```/g, '').trim()); if (Array.isArray(p)) return p.slice(0, count); throw new Error('x'); } catch(g2) { throw new Error('Quiz generation failed'); }
   }
 }
