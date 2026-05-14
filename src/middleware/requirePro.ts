@@ -30,15 +30,14 @@ export function requirePro(
   // This is async — we need to use promise-based logic here
   getValidSubscription(req.user.id)
     .then((sub) => {
-      if (!sub) {
-        ApiResponse.error(
-          res,
-          'Your Pro subscription has expired or been cancelled. Renew at boardtopper.ai/pricing.',
-          403
-        );
-        return;
-      }
-      next();
+      const { findById } = require('../data/users.store');
+      return findById(req.user!.id).then((dbUser: any) => {
+        if (!sub && dbUser?.plan !== 'pro') {
+          ApiResponse.error(res, 'Your Pro subscription has expired or been cancelled. Renew at boardtopper.ai/pricing.', 403);
+          return;
+        }
+        next();
+      });
     })
     .catch(() => {
       // DB error — fail open with a warning (don't block legitimate Pro users on DB blip)
@@ -46,4 +45,5 @@ export function requirePro(
       next();
     });
 }
+
 

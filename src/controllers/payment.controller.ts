@@ -272,7 +272,7 @@ export const getSubscriptionStatus = asyncHandler(
 
     ApiResponse.success(res, {
       plan:         user.plan,
-      isPro:        user.plan === 'pro' && !!subscription,
+      isPro:        user.plan === 'pro',
       subscription: subscription
         ? {
             id:      subscription.id,
@@ -333,4 +333,5 @@ export const cancelSubscription = asyncHandler(
     });
   }
 );
+
 
