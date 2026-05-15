@@ -170,7 +170,7 @@ function getPaperPattern(subject: string): string {
   return SSC_PAPER_PATTERN['default'];
 }
 
-async function generateAiTips(weakSubjects: string[], board: string, language: string): Promise<AiTip[]> {
+async function generateAiTips(weakSubjects: string[], board: string, language: string, examType = 'board', chapters = '', hoursLeft = 12): Promise<AiTip[]> {
   if (weakSubjects.length === 0) return [];
   const tips: AiTip[] = [];
   await Promise.all(weakSubjects.slice(0, 3).map(async (subject) => {
@@ -179,7 +179,16 @@ async function generateAiTips(weakSubjects: string[], board: string, language: s
       const result = await askGroq({
         systemPrompt: `You are an expert Maharashtra SSC board exam coach for Class 10 students.
 ${pattern}
-Your job: Give exactly 3 short, high-impact last-minute revision tips for the exam tomorrow.
+Exam context:
+- Exam type:  (unit_test = only specific chapters, half_yearly = half syllabus, board = full syllabus)
+- Chapters included in this exam: 
+- Time remaining:  hours
+
+Your job: Give exactly 3 short, high-impact revision tips tailored to the TIME LEFT and EXAM TYPE above.
+- If hoursLeft <= 4: focus ONLY on formulas, definitions, and 1-mark facts. No long topics.
+- If hoursLeft <= 12: focus on 2-3 mark questions and key diagrams only.
+- If hoursLeft > 12: cover high-weightage long answer topics too.
+- If chapters are specified, ONLY give tips for those chapters. Ignore rest of syllabus.
 Rules:
 - Each tip must be ONE sentence, specific, actionable
 - Focus on highest-frequency exam topics listed above
@@ -307,7 +316,10 @@ export const getEmergency = asyncHandler(
     const userContext = { examDate, weakSubjects, streakCount, targetPercent, name };
 
     // Generate AI tips in parallel with DB queries
-    const aiTipsPromise = generateAiTips(weakSubjects, 'Maharashtra SSC', language);
+    const examType  = String(req.query['examType']  || 'board');
+    const chapters  = String(req.query['chapters']  || '');
+    const hoursLeft = Number(req.query['hoursLeft'] || 12);
+    const aiTipsPromise = generateAiTips(weakSubjects, 'Maharashtra SSC', language, examType, chapters, hoursLeft);
 
     // Step 1: Notes - weak subjects first
     const { data: noteRows, error: noteError } = await supabase
@@ -320,9 +332,14 @@ export const getEmergency = asyncHandler(
     if (noteError) { ApiResponse.error(res, 'Failed to fetch notes', 500); return; }
 
     const notes = (noteRows ?? []) as UserNoteRow[];
+    const chapterList = chapters ? chapters.split(',').map((c: string) => c.trim().toLowerCase()).filter(Boolean) : [];
 
     if (notes.length > 0) {
       const sorted = [...notes].sort((a, b) => {
+        const aChapter = chapterList.length > 0 && chapterList.some(c => a.title.toLowerCase().includes(c));
+        const bChapter = chapterList.length > 0 && chapterList.some(c => b.title.toLowerCase().includes(c));
+        if (aChapter && !bChapter) return -1;
+        if (!aChapter && bChapter) return 1;
         const aWeak = weakSubjects.some(s => a.title.toLowerCase().includes(s.toLowerCase()));
         const bWeak = weakSubjects.some(s => b.title.toLowerCase().includes(s.toLowerCase()));
         return (aWeak ? 0 : 1) - (bWeak ? 0 : 1);
@@ -385,10 +402,10 @@ export const getEmergency = asyncHandler(
 
     if (chapterError) { ApiResponse.error(res, 'Failed to fetch syllabus', 500); return; }
 
-    const chapters = (chapterRows ?? []) as ChapterRow[];
+    const syllabus = (chapterRows ?? []) as ChapterRow[];
 
-    if (chapters.length > 0) {
-      const sorted = [...chapters].sort((a, b) => {
+    if (syllabus.length > 0) {
+      const sorted = [...syllabus].sort((a, b) => {
         const aWeak = weakSubjects.some(s => a.name.toLowerCase().includes(s.toLowerCase()));
         const bWeak = weakSubjects.some(s => b.name.toLowerCase().includes(s.toLowerCase()));
         return (aWeak ? 0 : 1) - (bWeak ? 0 : 1);
@@ -465,3 +482,6 @@ export const getLikelyQuestions = asyncHandler(
     } as LikelyQuestionsResponse);
   }
 );
+
+
+
