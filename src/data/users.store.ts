@@ -1,6 +1,6 @@
-import supabase from '../config/supabase';
+﻿import supabase from '../config/supabase';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * DAY 2 SCOPE: board is always 'maharashtra'.
@@ -36,7 +36,7 @@ export interface CreateUserInput {
   passwordHash: string;
 }
 
-// ─── DB row → TS model ────────────────────────────────────────────────────────
+// â”€â”€â”€ DB row â†’ TS model â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface UserRow {
   id:                  string;
@@ -89,7 +89,7 @@ function toStoredUser(row: UserRow): StoredUser {
   };
 }
 
-// ─── Store methods ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Store methods â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export async function findByEmail(email: string): Promise<StoredUser | undefined> {
   const { data, error } = await supabase
@@ -122,7 +122,7 @@ export async function findByResetToken(token: string): Promise<StoredUser | unde
 }
 
 /**
- * createUser — always writes board = 'maharashtra'.
+ * createUser â€” always writes board = 'maharashtra'.
  */
 export async function createUser(input: CreateUserInput): Promise<StoredUser> {
   const { data, error } = await supabase
@@ -148,7 +148,7 @@ export async function createUser(input: CreateUserInput): Promise<StoredUser> {
 }
 
 /**
- * updateUser — maps TypeScript camelCase fields to snake_case DB columns.
+ * updateUser â€” maps TypeScript camelCase fields to snake_case DB columns.
  */
 export async function updateUser(
   id:   string,
@@ -178,13 +178,12 @@ export async function updateUser(
 
   payload['updated_at'] = new Date().toISOString();
 
-  const { data: row, error } = await supabase
+  const { error } = await supabase
     .from('users')
     .update(payload)
-    .eq('id', id)
-    .select()
-    .single();
+    .eq('id', id);
 
-  if (error || !row) return undefined;
-  return toStoredUser(row as UserRow);
+  if (error) return undefined;
+  return findById(id);
 }
+
