@@ -183,7 +183,7 @@ export async function updateUser(
     .update(payload)
     .eq('id', id);
 
-  if (error) return undefined;
+  if (error) { console.error("[updateUser] error:", JSON.stringify(error)); return undefined; }
   return findById(id);
 }
 
