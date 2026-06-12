@@ -39,7 +39,7 @@ export async function checkLivePlan(
       .from('subscriptions')
       .select('id')
       .eq('user_id', userId)
-      .eq('status', 'active')
+      .in('status', ['active', 'cancelled'])
       .gt('ends_at', new Date().toISOString())
       .limit(1)
       .single();

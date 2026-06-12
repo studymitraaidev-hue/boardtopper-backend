@@ -180,7 +180,7 @@ export async function getValidSubscription(
     .from('subscriptions')
     .select('*')
     .eq('user_id', userId)
-    .eq('status', 'active')
+    .in('status', ['active', 'cancelled'])
     .gt('ends_at', new Date().toISOString())
     .order('created_at', { ascending: false })
     .limit(1)
