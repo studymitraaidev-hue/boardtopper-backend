@@ -47,7 +47,7 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
     const { GoogleGenAI } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
     const response = await ai.models.generateContent({
-      model:    'gemini-2.0-flash',
+      model:    'gemini-2.5-flash-lite',
       contents,
       config: {
         systemInstruction: req.systemPrompt,
