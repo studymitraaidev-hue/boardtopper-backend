@@ -164,7 +164,8 @@ export const askDoubt = asyncHandler(async (req: Request, res: Response): Promis
       userMessage: safeInput,
       history: history.map((m) => ({ role: m.role, text: m.text })),
     });
-  } catch {
+  } catch (err) {
+    console.error('[askGemini error]', err);
     ApiResponse.error(res, 'AI service temporarily unavailable. Try again.', 503);
     return;
   }
