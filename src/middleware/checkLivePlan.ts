@@ -7,6 +7,10 @@ const planCache = new Map<string, { isPro: boolean; cachedAt: number }>();
 
 const CACHE_TTL = 300_000; // 5 minutes in milliseconds
 
+export function invalidatePlanCache(userId: string): void {
+  planCache.delete(userId);
+}
+
 // ─── Middleware ───────────────────────────────────────────────────────────────
 
 export async function checkLivePlan(

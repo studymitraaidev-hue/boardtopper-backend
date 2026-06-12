@@ -38,6 +38,7 @@ import {
   getSubscriptionByPaymentId,
 } from '../data/subscriptions.store';
 import { sendCancellationEmail } from '../services/email.service';
+import { invalidatePlanCache } from '../middleware/checkLivePlan';
 import config from '../config/env';
 import logger from '../utils/logger';
 
@@ -206,6 +207,7 @@ export const verifyPayment = asyncHandler(
 
       // 7. Upgrade user plan to 'pro' in Supabase
       await updateUser(req.user!.id, { plan: 'pro' });
+      invalidatePlanCache(req.user!.id);
 
       // 8. Issue new JWT with updated plan — frontend swaps token, Pro unlocked instantly
       const newToken = signToken({

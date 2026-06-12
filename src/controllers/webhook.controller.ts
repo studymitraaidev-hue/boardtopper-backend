@@ -27,6 +27,7 @@ import {
   expireOtherSubscriptions,
 } from '../data/subscriptions.store';
 import { updateUser } from '../data/users.store';
+import { invalidatePlanCache } from '../middleware/checkLivePlan';
 import config from '../config/env';
 import logger from '../utils/logger';
 
@@ -162,6 +163,7 @@ async function handlePaymentCaptured(payload: RazorpayWebhookPayload): Promise<v
 
   // Upgrade user plan
   await updateUser(paymentRecord.userId, { plan: 'pro' });
+  invalidatePlanCache(paymentRecord.userId);
 
   logger.info(
     `[Webhook] payment.captured: userId=${paymentRecord.userId} upgraded to Pro ` +

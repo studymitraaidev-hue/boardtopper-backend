@@ -1,0 +1,1 @@
+﻿const fs=require("fs"); let c=fs.readFileSync("src/data/users.store.ts","utf8"); c=c.replace("if (error) return undefined;", "if (error) { console.error(\"[updateUser] error:\", JSON.stringify(error)); return undefined; }"); fs.writeFileSync("src/data/users.store.ts",c,"utf8"); console.log("Done");
