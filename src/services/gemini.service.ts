@@ -21,7 +21,7 @@ export interface GeminiResponse {
 export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
   try {
     // FIX: Build multi-turn contents array from history + current message.
-    // Previously, history was accepted in the interface but silently discarded â€”
+    // Previously, history was accepted in the interface but silently discarded Ã¢â‚¬â€
     // every question was answered without any conversation context.
     const userParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
 
@@ -63,6 +63,7 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
     return { text, tokensUsed: undefined };
   } catch (err: unknown) {
     if (err instanceof Error) {
+    console.error('[Gemini original error]', err);
       const msg = err.message.toLowerCase();
       if (
         msg.includes('api key') ||
@@ -103,7 +104,7 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
       });
       return { text: groqResult.text, tokensUsed: undefined };
     } catch {
-      // Groq also failed â€” throw original error
+      // Groq also failed Ã¢â‚¬â€ throw original error
     }
 
     throw new Error('AI service encountered an unexpected error. Please try again.');
