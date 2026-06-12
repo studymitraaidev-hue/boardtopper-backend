@@ -1,6 +1,7 @@
 
 import config from '../config/env';
 import { askGroq } from './groq.service';
+import { askOpenRouter } from './openrouter.service';
 
 
 
@@ -87,6 +88,16 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
         } catch (groqErr) {
           console.error('[Groq fallback error]', groqErr);
         }
+        try {
+          const orResult = await askOpenRouter({
+            systemPrompt: req.systemPrompt,
+            userMessage:  req.userMessage,
+            history:      req.history,
+          });
+          return { text: orResult.text, tokensUsed: undefined };
+        } catch (orErr) {
+          console.error('[OpenRouter fallback error]', orErr);
+        }
         throw new Error('AI service is currently busy. Please try again in a moment.');
       }
       if (msg.includes('empty response')) {
@@ -105,6 +116,16 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
       return { text: groqResult.text, tokensUsed: undefined };
     } catch {
       // Groq also failed Ã¢â‚¬â€ throw original error
+    }
+    try {
+      const orResult = await askOpenRouter({
+        systemPrompt: req.systemPrompt,
+        userMessage:  req.userMessage,
+        history:      req.history,
+      });
+      return { text: orResult.text, tokensUsed: undefined };
+    } catch (orErr) {
+      console.error('[OpenRouter fallback error]', orErr);
     }
 
     throw new Error('AI service encountered an unexpected error. Please try again.');
