@@ -78,7 +78,7 @@ const allowedOrigins = config.CORS_ORIGIN
 
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || /^https:\/\/boardtopper-frontend-[a-z0-9]+-studymitraaidev-hues-projects\.vercel\.app$/.test(origin)) {
       cb(null, true);
     } else {
       cb(new Error(`CORS: origin ${origin} not allowed`));
@@ -152,3 +152,4 @@ Sentry.setupExpressErrorHandler(app);
 app.use(errorHandler);
 
 export default app;
+
