@@ -42,6 +42,15 @@ function toQuestion(row: DBRow): GeneratedQuestion {
 }
 
 /** Fetch non-expired cached questions for a chapter (up to limit) */
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 export async function getCachedQuestions(
   chapterId: string,
   limit: number
@@ -52,10 +61,11 @@ export async function getCachedQuestions(
     .eq('chapter_id', chapterId)
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .limit(limit * 4);
 
   if (error || !data) return [];
-  return (data as DBRow[]).map(toQuestion);
+  const all = (data as DBRow[]).map(toQuestion);
+  return shuffleArray(all).slice(0, limit);
 }
 
 /** Delete expired questions for a chapter, then bulk insert new ones */
@@ -85,6 +95,7 @@ export async function saveGeneratedQuestions(
 }
 
 /** Fetch cached questions by subject (cross-chapter, for subject-level quiz) */
+
 export async function getCachedQuestionsBySubject(
   subjectId: string,
   limit: number
@@ -95,8 +106,9 @@ export async function getCachedQuestionsBySubject(
     .eq('subject_id', subjectId)
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .limit(limit * 4);
 
   if (error || !data) return [];
-  return (data as DBRow[]).map(toQuestion);
+  const all = (data as DBRow[]).map(toQuestion);
+  return shuffleArray(all).slice(0, limit);
 }

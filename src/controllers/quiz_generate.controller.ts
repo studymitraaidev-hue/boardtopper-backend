@@ -100,7 +100,7 @@ export const generateQuiz = asyncHandler(
             subjectId: subjectId.trim(),
             question:      q.question,
             options:       q.options,
-            correctIndex:  q.correct_index,
+            correct_index: q.correct_index,
             difficulty:    q.difficulty,
             marks:         q.marks,
           }))
@@ -162,7 +162,7 @@ export const generateQuiz = asyncHandler(
             subjectId: subjectId.trim(),
             question:      q.question,
             options:       q.options,
-            correctIndex:  q.correct_index,
+            correct_index: q.correct_index,
             difficulty:    q.difficulty,
             marks:         q.marks,
           }))
