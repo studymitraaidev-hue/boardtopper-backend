@@ -60,7 +60,7 @@ export const generateQuiz = asyncHandler(
       if (cached.length >= count) {
         logger.info(`[QuizGen] Cache HIT — chapter=${chapterId} count=${count}`);
         ApiResponse.success(res, {
-          questions: cached.slice(0, count),
+          questions: cached.slice(0, count).map((q) => ({ question: q.question, options: q.options, correct_index: q.correctIndex, difficulty: q.difficulty, marks: q.marks })),
           source: 'cache',
           subjectId: subjectId.trim(),
           chapterId: chapterId.trim(),
@@ -125,7 +125,7 @@ export const generateQuiz = asyncHandler(
       if (cached.length >= count) {
         logger.info(`[QuizGen] Subject cache HIT — subject=${subjectId} count=${count}`);
         ApiResponse.success(res, {
-          questions: cached.slice(0, count),
+          questions: cached.slice(0, count).map((q) => ({ question: q.question, options: q.options, correct_index: q.correctIndex, difficulty: q.difficulty, marks: q.marks })),
           source: 'cache',
           subjectId: subjectId.trim(),
           chapterId: null,
