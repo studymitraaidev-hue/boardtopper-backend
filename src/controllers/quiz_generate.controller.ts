@@ -7,6 +7,7 @@ import {
   getCachedQuestions,
   getCachedQuestionsBySubject,
   saveGeneratedQuestions,
+  shuffleArray,
 } from '../data/generated_questions.store';
 import { generateMCQs } from '../services/quiz_generator.service';
 import logger from '../utils/logger';
@@ -81,11 +82,12 @@ export const generateQuiz = asyncHandler(
       }
 
       try {
+        const poolSize = Math.min(count * 3, 40);
         const generated = await generateMCQs({
           subjectName:  subject.name,
           chapterName:  chapter.name,
           topics:       chapter.topics ?? [],
-          count,
+          count: poolSize,
         });
 
         if (generated.length === 0) {
@@ -109,7 +111,7 @@ export const generateQuiz = asyncHandler(
         );
 
         ApiResponse.success(res, {
-          questions: generated,
+          questions: shuffleArray(generated).slice(0, count),
           source: 'generated',
           subjectId: subjectId.trim(),
           chapterId: chapterId.trim(),
@@ -144,11 +146,12 @@ export const generateQuiz = asyncHandler(
       const randomChapter = chapters[Math.floor(Math.random() * chapters.length)];
 
       try {
+        const poolSize2 = Math.min(count * 3, 40);
         const generated = await generateMCQs({
           subjectName:  subject.name,
           chapterName:  randomChapter.name,
           topics:       randomChapter.topics ?? [],
-          count,
+          count: poolSize2,
         });
 
         if (generated.length === 0) {
@@ -171,7 +174,7 @@ export const generateQuiz = asyncHandler(
         );
 
         ApiResponse.success(res, {
-          questions: generated,
+          questions: shuffleArray(generated).slice(0, count),
           source: 'generated',
           subjectId: subjectId.trim(),
           chapterId: randomChapter.id,
@@ -183,3 +186,4 @@ export const generateQuiz = asyncHandler(
     }
   }
 );
+
