@@ -1,4 +1,4 @@
-import config from '../config/env';
+﻿import config from '../config/env';
 
 export interface GroqRequest {
   systemPrompt: string;
@@ -29,9 +29,9 @@ export async function askGroq(req: GroqRequest): Promise<{ text: string }> {
           ...historyMessages,
           { role: 'user', content: req.userMessage },
         ],
-        // FIX: was 1024 â€” too short for Maharashtra board 5-mark answers (~500-800 words).
-        // At ~4 chars/token, 1024 tokens â‰ˆ 400 words â€” answers were cut off mid-sentence.
-        max_tokens:  2048,
+        // FIX: was 1024 Ã¢â‚¬â€ too short for Maharashtra board 5-mark answers (~500-800 words).
+        // At ~4 chars/token, 1024 tokens Ã¢â€°Ë† 400 words Ã¢â‚¬â€ answers were cut off mid-sentence.
+        max_tokens: 8192,
         // FIX: lowered temperature for more consistent board-style answers
         temperature: 0.2,
       }),
@@ -57,3 +57,4 @@ export async function askGroq(req: GroqRequest): Promise<{ text: string }> {
     throw new Error('Groq unavailable');
   }
 }
+
