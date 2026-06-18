@@ -1,22 +1,15 @@
-import { askGroq } from './groq.service';
+﻿import { askGroq } from './groq.service';
 import config from '../config/env';
 import logger from '../utils/logger';
 
-
-
 export interface RawQuestion {
   question: string;
-  options: string[];      // exactly 4
-  correct_index: number;  // 0-3
+  options: string[];
+  correct_index: number;
   difficulty: 'easy' | 'medium' | 'hard';
   marks: number;
 }
 
-/**
- * Calls Gemini to generate MCQ questions for a Maharashtra SSC chapter.
- * Returns only valid questions (4 options, correct_index 0-3).
- * Throws on complete failure so caller can return 503.
- */
 export async function generateMCQs(params: {
   subjectName: string;
   chapterName: string;
@@ -24,7 +17,6 @@ export async function generateMCQs(params: {
   count: number;
 }): Promise<RawQuestion[]> {
   const { subjectName, chapterName, topics, count } = params;
-
   const topicList = topics.slice(0, 10).join(', ');
 
   const prompt = `You are a Maharashtra State Board SSC Class 10 exam question setter with 15 years of experience.
@@ -55,60 +47,52 @@ RETURN ONLY this JSON array, no markdown, no explanation, no extra text:
   }
 ]`;
 
+  const parseQuestions = (text: string, count: number): RawQuestion[] => {
+    const cleaned = text.replace(/```json|```/g, '').trim();
+    const parsed: unknown = JSON.parse(cleaned);
+    if (!Array.isArray(parsed)) throw new Error('non-array');
+    return (parsed as Record<string, unknown>[]).filter(item =>
+      typeof item['question'] === 'string' &&
+      Array.isArray(item['options']) &&
+      (item['options'] as unknown[]).length === 4 &&
+      typeof item['correct_index'] === 'number' &&
+      Number(item['correct_index']) >= 0 &&
+      Number(item['correct_index']) <= 3
+    ).slice(0, count).map(item => ({
+      question: String(item['question']),
+      options: (item['options'] as unknown[]).map(String),
+      correct_index: Number(item['correct_index']),
+      difficulty: (['easy','medium','hard'].includes(String(item['difficulty'])))
+        ? item['difficulty'] as 'easy'|'medium'|'hard' : 'medium',
+      marks: typeof item['marks'] === 'number' ? Number(item['marks']) : 2,
+    }));
+  };
+
+  // Try Groq first
+  try {
+    const g = await askGroq({ systemPrompt: 'Return ONLY a JSON array, no markdown.', userMessage: prompt });
+    const valid = parseQuestions(g.text, count);
+    logger.info(`[QuizGen] Groq generated ${valid.length}/${count} questions for ${chapterName}`);
+    return valid;
+  } catch (err) {
+    logger.error(`[QuizGen] Groq failed for ${chapterName}: ${String(err)}`);
+  }
+
+  // Fallback to Gemini
   try {
     const { GoogleGenAI } = await import('@google/genai');
-  const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
-  const response = await ai.models.generateContent({
+    const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
+    const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: { temperature: 0.7, maxOutputTokens: 4096 },
     });
-
     const raw = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-
-    // Strip markdown fences if present
-    const cleaned = raw
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/```\s*$/i, '')
-      .trim();
-
-    const parsed: unknown = JSON.parse(cleaned);
-
-    if (!Array.isArray(parsed)) {
-      throw new Error('Gemini returned non-array');
-    }
-
-    // Validate and filter each question
-    const valid: RawQuestion[] = [];
-    for (const item of parsed) {
-      if (
-        typeof (item as Record<string, unknown>)['question'] === 'string' &&
-        Array.isArray((item as Record<string, unknown>)['options']) &&
-        ((item as Record<string, unknown>)['options'] as unknown[]).length === 4 &&
-        typeof (item as Record<string, unknown>)['correct_index'] === 'number' &&
-        Number((item as Record<string, unknown>)['correct_index']) >= 0 &&
-        Number((item as Record<string, unknown>)['correct_index']) <= 3
-      ) {
-        valid.push({
-          question:      String((item as Record<string, unknown>)['question']),
-          options:       ((item as Record<string, unknown>)['options'] as unknown[]).map(String),
-          correct_index: Number((item as Record<string, unknown>)['correct_index']),
-          difficulty:    (['easy','medium','hard'].includes(String((item as Record<string, unknown>)['difficulty'])))
-                           ? (item as Record<string, unknown>)['difficulty'] as 'easy'|'medium'|'hard'
-                           : 'medium',
-          marks:         typeof (item as Record<string, unknown>)['marks'] === 'number'
-                           ? Number((item as Record<string, unknown>)['marks'])
-                           : 2,
-        });
-      }
-    }
-
-    logger.info(`[QuizGen] Generated ${valid.length}/${count} valid questions for ${chapterName}`);
+    const valid = parseQuestions(raw, count);
+    logger.info(`[QuizGen] Gemini generated ${valid.length}/${count} questions for ${chapterName}`);
     return valid;
-
   } catch (err) {
-    logger.error(`[QuizGen] Gemini generation failed for ${chapterName}: ${String(err)}`);
-    try { const g = await askGroq({ systemPrompt: 'Return ONLY a JSON array.', userMessage: prompt }); const p = JSON.parse(g.text.replace(/```/g, '').trim()); if (Array.isArray(p)) return p.slice(0, count); throw new Error('x'); } catch(g2) { throw new Error('Quiz generation failed'); }
+    logger.error(`[QuizGen] Gemini also failed for ${chapterName}: ${String(err)}`);
+    throw new Error('Quiz generation failed');
   }
 }
