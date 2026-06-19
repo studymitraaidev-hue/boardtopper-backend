@@ -1,4 +1,4 @@
-﻿import { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
 import { findById } from '../data/users.store';
@@ -180,9 +180,9 @@ async function generateAiTips(weakSubjects: string[], board: string, language: s
         systemPrompt: `You are an expert Maharashtra SSC board exam coach for Class 10 students.
 ${pattern}
 Exam context:
-- Exam type:  (unit_test = only specific chapters, half_yearly = half syllabus, board = full syllabus)
-- Chapters included in this exam: 
-- Time remaining:  hours
+- Exam type: ${examType} (unit_test = only specific chapters, half_yearly = half syllabus, board = full syllabus)
+- Chapters included in this exam: ${chapters || 'Full Syllabus'}
+- Time remaining: ${hoursLeft} hours
 
 Your job: Give exactly 3 short, high-impact revision tips tailored to the TIME LEFT and EXAM TYPE above.
 - If hoursLeft <= 4: focus ONLY on formulas, definitions, and 1-mark facts. No long topics.
@@ -298,7 +298,7 @@ Format:
   return allQuestions.sort((a, b) => (order[a.likelihood] ?? 2) - (order[b.likelihood] ?? 2));
 }
 
-// ─── Controllers ──────────────────────────────────────────────────────────────
+// --- Controllers --------------------------------------------------------------
 
 export const getEmergency = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
@@ -482,6 +482,11 @@ export const getLikelyQuestions = asyncHandler(
     } as LikelyQuestionsResponse);
   }
 );
+
+
+
+
+
 
 
 
