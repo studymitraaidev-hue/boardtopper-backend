@@ -412,6 +412,10 @@ export const getEmergency = asyncHandler(
 
     if (syllabus.length > 0) {
       const sorted = [...syllabus].sort((a, b) => {
+        const aChapter = chapterList.length > 0 && chapterList.some(c => a.name.toLowerCase().includes(c));
+        const bChapter = chapterList.length > 0 && chapterList.some(c => b.name.toLowerCase().includes(c));
+        if (aChapter && !bChapter) return -1;
+        if (!aChapter && bChapter) return 1;
         const aWeak = weakSubjects.some(s => a.name.toLowerCase().includes(s.toLowerCase()));
         const bWeak = weakSubjects.some(s => b.name.toLowerCase().includes(s.toLowerCase()));
         return (aWeak ? 0 : 1) - (bWeak ? 0 : 1);
