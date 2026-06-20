@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+﻿import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
 import { updateStreak } from '../utils/streak';
@@ -11,7 +11,9 @@ import {
   getBestScore,
   getSubjectBreakdown,
   getRecentAttempts,
+  getWeakSubjectNames,
 } from '../data/quiz_attempts.store';
+import { updateUser } from '../data/users.store';
 
 // POST /api/quiz/attempt
 export const submitAttempt = asyncHandler(
@@ -29,7 +31,7 @@ export const submitAttempt = asyncHandler(
       ApiResponse.error(res, 'subjectId is required', 400);
       return;
     }
-    // Bug 4 fix: enforce integer — reject floats at the API boundary
+    // Bug 4 fix: enforce integer â€” reject floats at the API boundary
     if (
       typeof score !== 'number' ||
       !Number.isInteger(score) ||
@@ -69,6 +71,16 @@ export const submitAttempt = asyncHandler(
       logger.warn('[streak] Failed to update streak after quiz submission');
     }
 
+    getWeakSubjectNames(userId)
+      .then((names) => {
+        if (names.length > 0) {
+          return updateUser(userId, { weakSubjects: names });
+        }
+      })
+      .catch(() => {
+        logger.warn('[weak-subjects] Failed to sync weak subjects after quiz submission');
+      });
+
     ApiResponse.success(res, attempt, 201);
   }
 );
@@ -98,7 +110,7 @@ export const quizStats = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const userId = req.user!.id;
 
-    // Run all queries in parallel — independent of each other
+    // Run all queries in parallel â€” independent of each other
     const [averageScoreVal, bestScoreVal, totalAttempts, subjectBreakdown] = await Promise.all([
       getAverageScore(userId),
       getBestScore(userId),
@@ -136,3 +148,5 @@ export const recentAttempts = asyncHandler(
     ApiResponse.success(res, attempts);
   }
 );
+
+

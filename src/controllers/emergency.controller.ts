@@ -22,11 +22,14 @@ interface EmergencyResponse {
   items:       EmergencyItem[];
   aiTips:      AiTip[];
   userContext: {
-    examDate:      string | null;
-    weakSubjects:  string[];
-    streakCount:   number;
-    targetPercent: number;
-    name:          string;
+    examDate:          string | null;
+    weakSubjects:      string[];
+    streakCount:       number;
+    targetPercent:     number;
+    name:              string;
+    timeRemainingMinutes: number | null;
+    urgencyLevel:      'unknown' | 'low' | 'medium' | 'high' | 'panic';
+    prioritySubjects:  string[];
   };
 }
 export interface LikelyQuestion {
@@ -313,7 +316,10 @@ export const getEmergency = asyncHandler(
     const name          = user?.name          ?? 'Topper';
     const language      = user?.language      ?? 'english';
 
-    const userContext = { examDate, weakSubjects, streakCount, targetPercent, name };
+    const timeRemainingMinutes = examDate ? Math.max(0, Math.ceil((new Date(examDate).getTime() - Date.now()) / 60000)) : null;
+    const urgencyLevel = timeRemainingMinutes === null ? 'unknown' : timeRemainingMinutes <= 240 ? 'panic' : timeRemainingMinutes <= 720 ? 'high' : timeRemainingMinutes <= 2880 ? 'medium' : 'low';
+    const prioritySubjects = weakSubjects.slice(0, 3);
+    const userContext = { examDate, weakSubjects, streakCount, targetPercent, name, timeRemainingMinutes, urgencyLevel, prioritySubjects };
 
     // Generate AI tips in parallel with DB queries
     const examType  = String(req.query['examType']  || 'board');
@@ -482,6 +488,7 @@ export const getLikelyQuestions = asyncHandler(
     } as LikelyQuestionsResponse);
   }
 );
+
 
 
 

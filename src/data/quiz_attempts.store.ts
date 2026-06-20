@@ -176,3 +176,30 @@ export async function getRecentAttempts(userId: string, limit = 10): Promise<Sto
   if (error) throw new Error(error.message);
   return (data ?? []).map((r) => toStoredAttempt(r as QuizAttemptRow));
 }
+
+// ─── Weak subject detection (real performance, not self-reported) ─────────
+
+import { getSubjectById } from './subjects.store';
+
+// Returns canonical subject names where the student is genuinely struggling:
+// average score below 60, with at least 2 attempts (avoids judging on one bad day).
+// Returns [] if there isn't enough data yet — caller should NOT overwrite
+// existing weakSubjects in that case (cold start / not enough quizzes taken).
+export async function getWeakSubjectNames(userId: string): Promise<string[]> {
+  const breakdown = await getSubjectBreakdown(userId);
+  const weak = breakdown
+    .filter((s) => s.attempts >= 2 && s.averageScore < 60)
+    .sort((a, b) => a.averageScore - b.averageScore)
+    .slice(0, 3);
+
+  if (weak.length === 0) return [];
+
+  const names = await Promise.all(
+    weak.map(async (s) => {
+      const subj = await getSubjectById(s.subjectId);
+      return subj?.name ?? s.subjectId;
+    })
+  );
+
+  return names;
+}

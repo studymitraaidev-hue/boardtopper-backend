@@ -1,12 +1,13 @@
-import { Request, Response } from 'express';
-import { asyncHandler } from '../utils/asyncHandler';           // FIX: was '../middleware/asyncHandler' — file doesn't exist
-import { ApiResponse } from '../utils/ApiResponse';             // FIX: was '../utils/apiResponse' — wrong case, file doesn't exist
+﻿import { Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler';           // FIX: was '../middleware/asyncHandler' â€” file doesn't exist
+import { ApiResponse } from '../utils/ApiResponse';             // FIX: was '../utils/apiResponse' â€” wrong case, file doesn't exist
 import { updateStreak } from '../utils/streak';
 import logger from '../utils/logger';
 import { askGemini } from '../services/gemini.service';
 import { buildSystemPrompt, detectQuestionType, estimateMarks } from '../services/prompt.service';
 import { getHistory, addMessage, clearHistory } from '../data/conversation.store';
 import { getChapterById } from '../data/chapters.store';
+import { recordDoubtTopic } from '../data/doubt_topics.store';
 import { getChapterContent, buildContentContext } from '../data/chapter_content.store';
 import { findById } from '../data/users.store';
 import multer from 'multer';
@@ -26,7 +27,7 @@ const upload = multer({
 
 export const uploadSingle = upload.single('image');
 
-// ─── Prompt injection sanitiser ───────────────────────────────────────────────
+// â”€â”€â”€ Prompt injection sanitiser â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function sanitiseInput(raw: string): string {
   let text = raw.trim().slice(0, 2000);
@@ -57,7 +58,7 @@ export const askDoubt = asyncHandler(async (req: Request, res: Response): Promis
 
   // Validate question
   if (question === undefined || question === null || typeof question !== 'string') {
-    ApiResponse.error(res, 'Question is required', 400);  // FIX: removed return — asyncHandler expects Promise<void>
+    ApiResponse.error(res, 'Question is required', 400);  // FIX: removed return â€” asyncHandler expects Promise<void>
     return;
   }
 
@@ -100,6 +101,7 @@ export const askDoubt = asyncHandler(async (req: Request, res: Response): Promis
       const chapter = await getChapterById(resolvedChapterId);
       if (chapter?.name) {
         chapterName = chapter.name;
+        recordDoubtTopic(req.user!.id, chapter.subjectId, chapter.name).catch(() => {});
       }
 
       // Fetch Maharashtra SSC board-specific content for this chapter
@@ -109,7 +111,7 @@ export const askDoubt = asyncHandler(async (req: Request, res: Response): Promis
         contentContext = buildContentContext(chapterContent);
       }
     } catch {
-      // Non-fatal — fall back to generic prompt
+      // Non-fatal â€” fall back to generic prompt
     }
   }
 
@@ -128,7 +130,7 @@ export const askDoubt = asyncHandler(async (req: Request, res: Response): Promis
         targetPercent: fullUser.targetPercent,
       };
     }
-  } catch { /* non-fatal — fall back to defaults */ }
+  } catch { /* non-fatal â€” fall back to defaults */ }
 
   // Build personalised Maharashtra Board system prompt
   // contentContext injects real SSC textbook content when chapter is seeded
@@ -142,7 +144,7 @@ export const askDoubt = asyncHandler(async (req: Request, res: Response): Promis
   });
 
   // Fetch conversation history (capped at 20 messages in store)
-  const history = await getHistory(req.user!.id);  // FIX: added ! — req.user guaranteed by authenticate middleware
+  const history = await getHistory(req.user!.id);  // FIX: added ! â€” req.user guaranteed by authenticate middleware
 
   // Sanitise user-supplied input before passing to Gemini or storing
   const safeInput = `<student_question>${sanitiseInput(trimmedQuestion)}</student_question>`;
@@ -267,3 +269,5 @@ export const askDoubtWithImage = asyncHandler(async (req: Request, res: Response
 
   ApiResponse.success(res, { answer: result.text, subject });
 });
+
+
