@@ -222,12 +222,9 @@ export const updateMe = asyncHandler(
         allowed.examDate = null;
       } else if (
         typeof body['examDate'] === 'string' &&
-        /^\d{4}-\d{2}-\d{2}$/.test(body['examDate'])
+        !isNaN(new Date(body['examDate']).getTime())
       ) {
-        const parsed = new Date(body['examDate']);
-        if (!isNaN(parsed.getTime())) {
-          allowed.examDate = body['examDate'];
-        }
+        allowed.examDate = body['examDate'];
       }
     }
 
