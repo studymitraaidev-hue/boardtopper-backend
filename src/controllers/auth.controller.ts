@@ -230,12 +230,12 @@ export const updateMe = asyncHandler(
 
     const currentUser = await findById(userId);
     if (currentUser && !currentUser.onboardingComplete) {
-      const willHaveBoard    = allowed.board         ?? currentUser.board;
-      const willHaveLang     = allowed.language      ?? currentUser.language;
-      const willHaveTarget   = allowed.targetPercent ?? currentUser.targetPercent;
-      const willHaveExamDate = allowed.examDate !== undefined ? allowed.examDate : currentUser.examDate;
-
-      if (willHaveBoard && willHaveLang && willHaveTarget !== undefined && willHaveExamDate) {
+      const willHaveBoard  = allowed.board         ?? currentUser.board;
+      const willHaveLang   = allowed.language      ?? currentUser.language;
+      const willHaveTarget = allowed.targetPercent ?? currentUser.targetPercent;
+      // FIX: examDate removed from this gate — exam dates change and are set
+      // later (Emergency Mode / Settings), they should never block onboarding.
+      if (willHaveBoard && willHaveLang && willHaveTarget !== undefined) {
         allowed.onboardingComplete = true;
       }
     }
