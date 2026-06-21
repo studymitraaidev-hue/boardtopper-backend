@@ -2,6 +2,7 @@
 import config from '../config/env';
 import { askGroq } from './groq.service';
 import { askOpenRouter } from './openrouter.service';
+import { askMistral } from './mistral.service';
 
 
 
@@ -97,6 +98,16 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
           return { text: orResult.text, tokensUsed: undefined };
         } catch (orErr) {
           console.error('[OpenRouter fallback error]', orErr);
+        }
+        try {
+          const mistralResult = await askMistral({
+            systemPrompt: req.systemPrompt,
+            userMessage:  req.userMessage,
+            history:      req.history,
+          });
+          return { text: mistralResult.text, tokensUsed: undefined };
+        } catch (mistralErr) {
+          console.error('[Mistral fallback error]', mistralErr);
         }
         throw new Error('AI service is currently busy. Please try again in a moment.');
       }

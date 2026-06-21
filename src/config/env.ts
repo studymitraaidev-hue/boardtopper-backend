@@ -53,7 +53,8 @@ const config = {
 
   // ── AI ───────────────────────────────────────────────────
   GEMINI_API_KEY: requireEnv('GEMINI_API_KEY', 10),
-  GROQ_API_KEY:   optionalEnv('GROQ_API_KEY', ''),
+  GROQ_API_KEY:     optionalEnv('GROQ_API_KEY', ''),
+  MISTRAL_API_KEY:   optionalEnv('MISTRAL_API_KEY', ''),
   OPENROUTER_API_KEY: optionalEnv('OPENROUTER_API_KEY', ''),
 
   // ── Redis (optional) ──────────────────────────────────────────────────────────

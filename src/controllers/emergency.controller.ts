@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
 import { findById } from '../data/users.store';
-import { askGroq } from '../services/groq.service';
+import { askGemini } from '../services/gemini.service';
 import { getPYQsBySubject } from '../data/pyqs.store';
 import supabase from '../config/supabase';
 
@@ -179,7 +179,7 @@ async function generateAiTips(weakSubjects: string[], board: string, language: s
   await Promise.all(weakSubjects.slice(0, 3).map(async (subject) => {
     try {
       const pattern = getPaperPattern(subject);
-      const result = await askGroq({
+      const result = await askGemini({
         systemPrompt: `You are an expert Maharashtra SSC board exam coach for Class 10 students.
 ${pattern}
 Exam context:
@@ -236,7 +236,7 @@ async function generateLikelyQuestions(
     const pattern   = getPaperPattern(subject);
 
     try {
-      const result = await askGroq({
+      const result = await askGemini({
         systemPrompt: `You are an expert Maharashtra SSC board exam question predictor for Class 10.
 ${pattern}
 Your task: Predict the 4 most likely exam questions for ${canonical} based on:
