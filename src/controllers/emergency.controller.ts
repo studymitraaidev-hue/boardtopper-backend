@@ -501,3 +501,74 @@ export const getLikelyQuestions = asyncHandler(
 
 
 
+
+
+// ─── Quick Chapters (real chapter names for wizard quick-pick chips) ───────────
+
+interface QuickChapterItem {
+  name:      string;
+  subjectId: string;
+  isWeak:    boolean;
+}
+
+const WEAK_SUBJECT_TO_CHAPTER_CODES: Record<string, string[]> = {
+  'mathematics':    ['algebra', 'geometry'],
+  'science':        ['science1', 'science2'],
+  'social science':  ['history', 'geography'],
+  'english':        ['english'],
+};
+
+function weakSubjectsToChapterCodes(weakSubjects: string[]): string[] {
+  const codes = new Set<string>();
+  for (const subject of weakSubjects) {
+    const lower = subject.toLowerCase().trim();
+    for (const [key, vals] of Object.entries(WEAK_SUBJECT_TO_CHAPTER_CODES)) {
+      if (lower.includes(key)) vals.forEach(v => codes.add(v));
+    }
+  }
+  return Array.from(codes);
+}
+
+export const getQuickChapters = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    if (!userId) { ApiResponse.error(res, 'Unauthorized', 401); return; }
+
+    const user         = await findById(userId);
+    const weakSubjects  = user?.weakSubjects ?? [];
+    const weakCodes     = weakSubjectsToChapterCodes(weakSubjects);
+
+    const items: QuickChapterItem[] = [];
+
+    // Step 1: chapters from the student's weak subjects, if any
+    if (weakCodes.length > 0) {
+      const { data: weakRows } = await supabase
+        .from('chapters')
+        .select('name, subject_id')
+        .in('subject_id', weakCodes)
+        .order('chapter_number', { ascending: true })
+        .limit(6);
+      (weakRows ?? []).forEach((r: { name: string; subject_id: string }) => {
+        items.push({ name: r.name, subjectId: r.subject_id, isWeak: true });
+      });
+    }
+
+    // Step 2: fill remaining slots (up to 8 total) with other chapters, no duplicates
+    if (items.length < 8) {
+      const { data: fillRows } = await supabase
+        .from('chapters')
+        .select('name, subject_id')
+        .order('chapter_number', { ascending: true })
+        .limit(20);
+      const existingNames = new Set(items.map(i => i.name));
+      for (const r of (fillRows ?? []) as { name: string; subject_id: string }[]) {
+        if (items.length >= 8) break;
+        if (existingNames.has(r.name)) continue;
+        items.push({ name: r.name, subjectId: r.subject_id, isWeak: false });
+        existingNames.add(r.name);
+      }
+    }
+
+    ApiResponse.success(res, { chapters: items });
+  }
+);
