@@ -23,6 +23,8 @@ export interface AuthUser {
   weakSubjects:  string[];
   examDate:      string | null;   // ISO date string 'YYYY-MM-DD' or null
   emailVerified: boolean;
+  onboardingComplete: boolean;
+  emergencyTrialUsed: boolean;
 }
 
 // ─── Academic data ────────────────────────────────────────────────────────────

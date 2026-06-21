@@ -21,6 +21,7 @@ export interface StoredUser {
   resetToken:        string | null;
   resetTokenExpires: string | null;
   onboardingComplete: boolean;
+  emergencyTrialUsed: boolean;
   emailVerified:     boolean;
   emailVerifyToken:  string | null;
   createdAt:         Date;
@@ -54,6 +55,7 @@ interface UserRow {
   reset_token:         string | null;
   reset_token_expires: string | null;
   onboarding_complete: boolean;
+  emergency_trial_used: boolean;
   email_verified:      boolean;
   email_verify_token:  string | null;
   created_at:          string;
@@ -80,6 +82,7 @@ function toStoredUser(row: UserRow): StoredUser {
     resetToken:        row.reset_token        ?? null,
     resetTokenExpires: row.reset_token_expires ?? null,
     onboardingComplete: row.onboarding_complete ?? false,
+    emergencyTrialUsed: row.emergency_trial_used ?? false,
     emailVerified:    row.email_verified    ?? false,
     emailVerifyToken: row.email_verify_token ?? null,
     createdAt:         new Date(row.created_at),
@@ -169,6 +172,7 @@ export async function updateUser(
   if (data.resetToken        !== undefined) payload['reset_token']         = data.resetToken;
   if (data.resetTokenExpires !== undefined) payload['reset_token_expires'] = data.resetTokenExpires;
   if (data.onboardingComplete !== undefined) payload['onboarding_complete'] = data.onboardingComplete;
+  if (data.emergencyTrialUsed !== undefined) payload['emergency_trial_used'] = data.emergencyTrialUsed;
   if (data.emailVerified    !== undefined) payload['email_verified']     = data.emailVerified;
   if (data.emailVerifyToken !== undefined) payload['email_verify_token'] = data.emailVerifyToken;
   if (data.deletedAt         !== undefined) payload['deleted_at']          = data.deletedAt;

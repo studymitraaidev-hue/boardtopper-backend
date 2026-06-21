@@ -47,6 +47,8 @@ export function toAuthUser(user: StoredUser): AuthUser {
     weakSubjects:  user.weakSubjects,
     examDate:      user.examDate ?? null,
     emailVerified: user.emailVerified,
+    onboardingComplete: user.onboardingComplete,
+    emergencyTrialUsed: user.emergencyTrialUsed,
   };
 }
 
