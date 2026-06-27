@@ -17,7 +17,7 @@ import {
 
 export const Dashboard = () => {
   const { subjects, schedule, dashboard, progress, isLoading, error } = useDashboard();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, isPro } = useAuth();
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
 
   // ── Notifications state ───────────────────────────────────────────────────
@@ -431,7 +431,7 @@ export const Dashboard = () => {
           </div>
 
           {/* ── Upgrade Banner ── */}
-          {user?.plan !== 'pro' && (
+          {!isPro && (
             <div className="relative bg-gradient-to-r from-slate-900 via-slate-900 to-blue-950 rounded-2xl sm:rounded-3xl p-5 sm:p-7 overflow-hidden">
               <div className="absolute top-0 right-0 w-48 sm:w-72 h-full opacity-10 pointer-events-none">
                 <Crown size={200} className="absolute -right-8 -top-4 rotate-12" />

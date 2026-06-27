@@ -24,7 +24,7 @@ interface SidebarProps { className?: string; }
 export const Sidebar = ({ className }: SidebarProps) => {
   const location  = useLocation();
   const navigate  = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, isPro } = useAuth();
   const { progress } = useDashboard();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -35,7 +35,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
 
   const initial = user?.name?.[0]?.toUpperCase() ?? 'U';
   const displayName = user?.name ?? 'Student';
-  const planLabel = user?.plan === 'pro' ? 'Topper Pro' : 'Free Plan';
+  const planLabel = isPro ? 'Topper Pro' : 'Free Plan';
 
   return (
     <aside
@@ -117,7 +117,7 @@ export const Sidebar = ({ className }: SidebarProps) => {
       </nav>
 
       {/* Upgrade Banner */}
-      {!collapsed && user?.plan !== 'pro' && (
+      {!collapsed && !isPro && (
         <div className="mx-3 mb-3">
           <Link to="/pricing" className="block">
             <div className="bg-gradient-to-br from-blue-600/20 to-violet-600/10 border border-blue-500/20 rounded-2xl p-4 group hover:border-blue-500/40 transition-all">
