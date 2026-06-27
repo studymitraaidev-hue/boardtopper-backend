@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opening BoardTopper...</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #ffffff;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .text {
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 30px;
+        }
+
+        .fallback-button {
+            display: none;
+            background-color: #ffffff;
+            color: #667eea;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .fallback-button:hover {
+            background-color: #f0f0f0;
+            transform: scale(1.05);
+        }
+
+        .fallback-button:active {
+            transform: scale(0.95);
+        }
+
+        .fallback-button.visible {
+            display: inline-block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <div class="text">Opening BoardTopper...</div>
+        <button class="fallback-button" id="fallbackBtn">🌐 Open in Chrome</button>
+    </div>
+
+    <script>
+        const targetUrl = 'https://boardtopper.vercel.app';
+        const userAgent = navigator.userAgent;
+        let redirectAttempted = false;
+
+        // Detect Instagram in-app browser
+        function isInstagramBrowser() {
+            return /Instagram/.test(userAgent);
+        }
+
+        // Detect Android
+        function isAndroid() {
+            return /Android/.test(userAgent);
+        }
+
+        // Detect iPhone
+        function isIPhone() {
+            return /iPhone|iPad|iPod/.test(userAgent);
+        }
+
+        // Handle redirect logic
+        function handleRedirect() {
+            if (isInstagramBrowser()) {
+                if (isAndroid()) {
+                    // Android + Instagram: Use Chrome intent
+                    window.location.href = 'intent://boardtopper.vercel.app#Intent;scheme=https;package=com.android.chrome;end';
+                    redirectAttempted = true;
+                } else if (isIPhone()) {
+                    // iPhone + Instagram: Try Chrome custom scheme
+                    window.location.href = 'googlechromes://boardtopper.vercel.app';
+                    redirectAttempted = true;
+
+                    // Fallback after 1500ms
+                    setTimeout(() => {
+                        window.location.href = targetUrl;
+                    }, 1500);
+                } else {
+                    // Instagram on other devices: Direct redirect
+                    window.location.href = targetUrl;
+                    redirectAttempted = true;
+                }
+            } else {
+                // Not Instagram browser: Direct redirect
+                window.location.href = targetUrl;
+                redirectAttempted = true;
+            }
+        }
+
+        // Show fallback button after 3 seconds if redirect hasn't completed
+        setTimeout(() => {
+            if (redirectAttempted) {
+                const fallbackBtn = document.getElementById('fallbackBtn');
+                fallbackBtn.classList.add('visible');
+            }
+        }, 3000);
+
+        // Fallback button click handler
+        document.getElementById('fallbackBtn').addEventListener('click', () => {
+            window.location.href = targetUrl;
+        });
+
+        // Initiate redirect immediately
+        handleRedirect();
+    </script>
+</body>
+</html>
