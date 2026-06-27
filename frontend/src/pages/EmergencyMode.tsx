@@ -861,10 +861,16 @@ export const EmergencyModePage = () => {
       const diff = new Date(ctx.examDateTime).getTime() - Date.now();
       effectiveHours = Math.max(1, Math.round(diff / 3600000));
     }
-    // Persist exam date to backend if an exact datetime was chosen
-    if (ctx.examDateTime) {
-      const isoDate = new Date(ctx.examDateTime).toISOString();
-      updateProfile({ examDate: isoDate }).catch(() => {});
+    // Persist exam date to backend — either exact datetime chosen, or approximate
+    // from quick-timing (e.g. "12h" → now + 12 hours). This ensures the countdown
+    // and data survive navigation away and back.
+    const examDateToSave = ctx.examDateTime
+      ? new Date(ctx.examDateTime).toISOString()
+      : new Date(Date.now() + effectiveHours * 3600000).toISOString();
+    updateProfile({ examDate: examDateToSave }).catch(() => {});
+    // Also update local examContext so the countdown ticks from the correct time
+    if (!ctx.examDateTime) {
+      setExamContext(prev => ({ ...prev, examDateTime: examDateToSave }));
     }
 
     try {

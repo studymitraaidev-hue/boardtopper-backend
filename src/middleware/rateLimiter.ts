@@ -20,10 +20,10 @@ export const authLimiter = rateLimit({
 });
 
 // ── AI route limiter ──────────────────────────────────────────────────────────
-// Free users: 3 requests per hour. Pro: unlimited.
+// Free users: 5 requests per hour. Pro: unlimited (skip=true).
 export const aiLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 3,
+  max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: Request): string => req.user?.id ?? req.ip ?? 'anonymous',
@@ -31,7 +31,7 @@ export const aiLimiter = rateLimit({
   handler: (_req: Request, res: Response): void => {
     res.status(429).json({
       data: null,
-      error: 'Hourly doubt limit reached (3/hour on Free plan). Upgrade to Pro for unlimited doubts.',
+      error: 'Hourly doubt limit reached (5/hour on Free plan). Upgrade to Pro for unlimited doubts.',
     });
   },
 });
