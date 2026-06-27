@@ -20,7 +20,7 @@ export async function askOpenRouter(req: OpenRouterRequest): Promise<{ text: str
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-chat-v3.1:free',
+          model: 'mistralai/mistral-7b-instruct:free',
         messages: [
           { role: 'system', content: req.systemPrompt },
           ...historyMessages,

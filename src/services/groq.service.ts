@@ -31,7 +31,7 @@ export async function askGroq(req: GroqRequest): Promise<{ text: string }> {
         ],
         // FIX: was 1024 Ã¢â‚¬â€ too short for Maharashtra board 5-mark answers (~500-800 words).
         // At ~4 chars/token, 1024 tokens Ã¢â€°Ë† 400 words Ã¢â‚¬â€ answers were cut off mid-sentence.
-        max_tokens: 8192,
+    max_tokens: 4000,
         // FIX: lowered temperature for more consistent board-style answers
         temperature: 0.2,
       }),
