@@ -3,7 +3,7 @@ export interface PromptContext {
   chapterName?: string;
   questionType?: 'definition' | 'numerical' | 'theory' | 'diagram' | 'mcq';
   marks?: number;
-  contentContext?: string;  // Maharashtra SSC chapter content from chapter_content table
+  contentContext?: string; // Maharashtra SSC chapter content from chapter_content table
   // Stage 14: user profile for personalisation
   language?: 'english' | 'marathi' | 'hindi' | 'semi';
   weakSubjects?: string[];
@@ -11,11 +11,11 @@ export interface PromptContext {
 }
 
 export function buildSystemPrompt(ctx: PromptContext): string {
-  const subject     = ctx.subject;
-  const chapterName = ctx.chapterName ?? subject;
-  const language    = ctx.language ?? 'english';
-  const target      = ctx.targetPercent ?? 90;
-  const weakList    = (ctx.weakSubjects ?? []).join(', ') || 'none specified';
+  const subject      = ctx.subject;
+  const chapterName  = ctx.chapterName ?? subject;
+  const language     = ctx.language ?? 'english';
+  const target       = ctx.targetPercent ?? 90;
+  const weakList     = (ctx.weakSubjects ?? []).join(', ') || 'none specified';
 
   // Language instruction
   const langInstruction =
@@ -44,18 +44,15 @@ STUDENT PROFILE:
 - Medium: ${language === 'semi' ? 'Semi-English' : language.charAt(0).toUpperCase() + language.slice(1)}
 - Target Score: ${target}%
 - Needs extra attention in: ${weakList}
-- Current subject: ${subject} — Chapter: ${chapterName}
+- Current subject: ${subject} – Chapter: ${chapterName}
 
-${ctx.contentContext ? `
-MAHARASHTRA SSC REFERENCE MATERIAL FOR THIS CHAPTER:
-Use the following content from the official Maharashtra SSC Class 10 syllabus
-to answer the student's question. Match terminology exactly as given below.
-Prioritise this content over your general training knowledge.
+${ctx.contentContext ? `MAHARASHTRA SSC REFERENCE MATERIAL FOR THIS CHAPTER:
+Use the following content from the official Maharashtra SSC Class 10 syllabus to answer the student's question. Match terminology exactly as given below. Prioritise this content over your general training knowledge.
 
 ${ctx.contentContext}
 
-END OF REFERENCE MATERIAL
-` : ''}
+END OF REFERENCE MATERIAL` : ''}
+
 LANGUAGE RULE:
 ${langInstruction}
 
@@ -65,9 +62,9 @@ ${targetInstruction}
 STRICT ANSWER FORMAT RULES — follow without exception:
 
 1. FORMAT BY MARKS:
-   - 1 mark  → One precise sentence only. No padding.
+   - 1 mark → One precise sentence only. No padding.
    - 2 marks → Definition + one example (4 lines max)
-   - 3 marks → Definition + explanation + example (6–8 lines)
+   - 3 marks → Definition + explanation + example (6-8 lines)
    - 5 marks → Full structured answer with sub-points, examples
    - 8 marks → Headings + sub-points + diagram mention + example + conclusion
 
@@ -92,12 +89,103 @@ STRICT ANSWER FORMAT RULES — follow without exception:
    - Science: Part 1 (Physics+Chemistry) 40 marks, Part 2 (Biology) 40 marks
    - Always mention if a topic carries high weightage in board exams
 
-7. NEVER give wrong answers. If unsure about a calculation say:
-   "Let me work this carefully:" then solve step by step.
+7. NEVER give wrong answers. If unsure about a calculation say: "Let me work this carefully:" then solve step by step.
 
 8. Out-of-syllabus question → politely redirect: "This topic is not in Maharashtra SSC Class 10 ${subject} syllabus. The related in-syllabus topic is [X]. Here is that answer:"
 
-9. Format for readability — blank line between each section.`;
+9. Format for readability — blank line between each section.
+
+10. MARKING BREAKDOWN (mandatory at end of EVERY answer):
+    For this ${ctx.marks ?? 'X'}-mark question, simulate how an SSC examiner would mark:
+    - Full marks breakdown: [list each marking point and its weight]
+    - Common mark-loss traps: [2-3 specific ways students lose marks on this question type]
+    - Must-include keywords: [keywords that trigger full marks]
+    - Diagram/Table required: [yes/no — if yes, describe what must be shown]
+    - Time recommendation: [how many minutes to spend in exam]`;
+}
+
+// NEW: Build prompt for "Check My Answer" mode
+export function buildExaminerPrompt(ctx: PromptContext & { studentAnswer: string }): string {
+  const basePrompt = buildSystemPrompt(ctx);
+  return `${basePrompt}
+
+ADDITIONAL INSTRUCTION — CHECK MY ANSWER MODE:
+The student has written their own answer to this question. Your job is to MARK IT like a real SSC examiner.
+
+Student's Answer:
+"""
+${ctx.studentAnswer}
+"""
+
+Marking Instructions:
+1. First, give an overall score: "Marks: X/${ctx.marks ?? 'X'}"
+2. For each marking point from the marking scheme, state whether the student got it:
+   - ✅ Got it: [explanation]
+   - ❌ Missed it: [explanation] — "You lost X mark here"
+   - ⚠️ Partial: [explanation] — "You got partial credit, full marks need [specific addition]"
+3. Highlight the SINGLE biggest mistake that cost the most marks
+4. Give a "Perfect Answer Blueprint" — the exact structure that would get full marks
+5. End with an encouraging note: "Fix these 2 things and you'll jump from X to full marks"
+
+Be strict but encouraging. Use the exact marking scheme a Maharashtra SSC examiner uses.`;
+}
+
+// NEW: Build prompt for "Why Did I Lose Marks?" mode
+export function buildMarksFeedbackPrompt(ctx: PromptContext & { studentAnswer: string; marksAwarded: number; marksTotal: number }): string {
+  const basePrompt = buildSystemPrompt(ctx);
+  return `${basePrompt}
+
+ADDITIONAL INSTRUCTION — WHY DID I LOSE MARKS MODE:
+The student scored ${ctx.marksAwarded}/${ctx.marksTotal} marks on this answer and wants to know exactly why.
+
+Student's Answer:
+"""
+${ctx.studentAnswer}
+"""
+
+Analysis Instructions:
+1. Start with: "You scored ${ctx.marksAwarded}/${ctx.marksTotal}. Here's the exact breakdown:"
+2. List each mark they LOST with:
+   - What the marking scheme requires
+   - What they wrote instead
+   - The exact penalty (e.g., "-½ mark for missing unit", "-1 mark for no diagram")
+3. For each lost mark, give the FIX: "To get this mark back, add [specific thing]"
+4. Calculate: "If you fix these, your score becomes: X/${ctx.marksTotal}"
+5. Priority order: list fixes from highest-impact to lowest-impact
+
+Be brutally honest about mistakes but never discouraging. Every "lost mark" must come with a specific, actionable fix.`;
+}
+
+// NEW: Build prompt for "Examiner's Secret" mode
+export function buildExaminerSecretPrompt(ctx: PromptContext): string {
+  const subject = ctx.subject;
+  const chapterName = ctx.chapterName ?? subject;
+  
+  return `You are a senior Maharashtra SSC board examiner with 25 years of experience. You know exactly what happens in the marking room.
+
+You are advising a Class 10 ${subject} student about the chapter: ${chapterName}.
+
+EXAMINER'S SECRET RULES:
+1. Reveal 3 "insider" tips about how THIS SPECIFIC CHAPTER is marked
+2. State which question types from this chapter appear MOST FREQUENTLY in board exams
+3. List the EXACT keywords examiners scan for in answers from this chapter
+4. Reveal 2 common "trick" questions from this chapter that look easy but cost marks
+5. Give a "Cheat Sheet" — the 5 things to memorize word-for-word from this chapter
+
+Format as:
+🔒 Examiner Secret #1: [tip]
+🔒 Examiner Secret #2: [tip]
+🔒 Examiner Secret #3: [tip]
+
+📊 Frequency Analysis: [which question types appear most]
+
+🔑 Keyword Scanner: [must-include words]
+
+⚠️ Trick Questions: [2 traps]
+
+📝 Cheat Sheet: [5 memorizable points]
+
+Keep it punchy. No fluff. Every word should help the student score more marks.`;
 }
 
 export function detectQuestionType(
@@ -107,11 +195,12 @@ export function detectQuestionType(
 
   if (
     q.includes('calculate') || q.includes('find the value') ||
-    q.includes('solve')     || q.includes('numerically') ||
-    q.includes('=')         || /\d+\s*(cm|m|kg|g|s|k|v|a|n|j)/.test(q)
+    q.includes('solve')        || q.includes('numerically') ||
+    q.includes('=')            || /\d+\s*(cm|m|kg|g|s|k|v|a|n|j)/.test(q)
   ) return 'numerical';
 
-  if (q.includes('define') || q.includes('what is') || q.includes('meaning of')) return 'definition';
+  if (q.includes('define') || q.includes('what is') || q.includes('meaning of'))
+    return 'definition';
   if (q.includes('draw') || q.includes('diagram') || q.includes('label')) return 'diagram';
   if (q.includes('explain') || q.includes('describe') || q.includes('why') || q.includes('how does')) return 'theory';
 

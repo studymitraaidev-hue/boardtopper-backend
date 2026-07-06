@@ -34,7 +34,9 @@
     "multer": "^1.4.5-lts.1",
     "razorpay": "^2.9.6",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.4.5",
     "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
   }
 }
