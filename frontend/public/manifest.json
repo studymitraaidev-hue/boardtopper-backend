@@ -1,0 +1,25 @@
+{
+  "name": "BoardTopper AI",
+  "short_name": "BoardTopper",
+  "description": "AI-powered study assistant for Maharashtra SSC Class 10 students",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "lang": "en-IN",
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

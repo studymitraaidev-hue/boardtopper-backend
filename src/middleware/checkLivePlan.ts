@@ -5,7 +5,8 @@ import supabase from '../config/supabase';
 // Declared at module level so it persists across requests.
 const planCache = new Map<string, { isPro: boolean; cachedAt: number }>();
 
-const CACHE_TTL = 300_000; // 5 minutes in milliseconds
+// Reduced from 5 min to 1 min so upgrades are reflected within 60 seconds.
+const CACHE_TTL = 60_000;
 
 export function invalidatePlanCache(userId: string): void {
   planCache.delete(userId);
@@ -35,23 +36,38 @@ export async function checkLivePlan(
 
   // Cache miss — query the live subscriptions table
   try {
+    // Use maybeSingle() instead of single() so 0 rows returns null (not an error).
+    // Keep 'cancelled' in status list — cancelled users who still have time left
+    // (ends_at in the future) have PAID for that time and should retain Pro access.
     const { data, error } = await supabase
       .from('subscriptions')
       .select('id')
       .eq('user_id', userId)
       .in('status', ['active', 'cancelled'])
       .gt('ends_at', new Date().toISOString())
+      .order('ends_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    const isPro = !error && data !== null;
+    if (error) {
+      // Log the Supabase error so it appears in Render logs for debugging.
+      console.error(`[checkLivePlan] Supabase error for user ${userId}:`, error.message, error.code);
+      // On DB error, fall back to JWT plan value — never block all users on outage.
+      next();
+      return;
+    }
+
+    const isPro = data !== null;
 
     planCache.set(userId, { isPro, cachedAt: Date.now() });
     req.user.plan = isPro ? 'pro' : 'free';
+
+    if (isPro) {
+      console.info(`[checkLivePlan] user=${userId} confirmed Pro (active subscription)`);
+    }
   } catch (err) {
-    // DB failure — log and fall through with the original JWT plan value intact.
-    // A database error must never block AI for all users.
-    console.error('[checkLivePlan] Failed to query subscriptions:', err);
+    // Network / unexpected failure — log and fall through with JWT plan intact.
+    console.error('[checkLivePlan] Unexpected error querying subscriptions:', err);
   }
 
   next();

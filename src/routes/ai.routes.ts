@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth.middleware';  // FIX: was '../middleware/auth' — file doesn't exist
 import { aiLimiter } from '../middleware/rateLimiter';
 import { checkLivePlan } from '../middleware/checkLivePlan';
+import { demoLimiter } from '../middleware/demoLimiter';
 import {
   askDoubt,
   askDoubtWithImage,
@@ -9,6 +10,7 @@ import {
   getConversationHistory,
   clearConversationHistory,
 } from '../controllers/ai.controller';
+import { askDoubtDemo } from '../controllers/demoAskController';
 
 const router = Router();
 
@@ -25,5 +27,6 @@ router.post(
 );
 router.get('/history', authenticate, getConversationHistory);
 router.delete('/history', authenticate, clearConversationHistory);
+router.post('/demo-ask', demoLimiter, askDoubtDemo);
 
 export default router;
