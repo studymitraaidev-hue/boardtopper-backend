@@ -1,12 +1,10 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
+import { config } from '../config/env';
 import { createClient } from '@supabase/supabase-js';
 
 const router = Router();
-const getSupabase = () => createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!
-);
+const getSupabase = () => createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY);
 
 router.post('/save', authenticate, async (req: any, res) => {
   const { question, answer, subject } = req.body;
