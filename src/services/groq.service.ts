@@ -1,60 +1,83 @@
-﻿import config from '../config/env';
+import config from '../config/env';
 
 export interface GroqRequest {
   systemPrompt: string;
   userMessage: string;
-  // FIX: history added so Groq fallback also gets conversation context
   history?: { role: 'user' | 'model'; text: string }[];
 }
 
-export async function askGroq(req: GroqRequest): Promise<{ text: string }> {
-  try {
-    // FIX: Build multi-turn messages array from history + current message.
-    // Groq uses OpenAI-compatible format: role is 'user' | 'assistant'
-    const historyMessages = (req.history ?? []).map((m) => ({
-      role:    m.role === 'model' ? 'assistant' : 'user',
-      content: m.text,
-    }));
+// Circuit breaker
+let failures = 0;
+let lastFailure = 0;
+const THRESHOLD = 3;
+const COOLDOWN = 60000;
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization:  `Bearer ${config.GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: req.systemPrompt },
-          ...historyMessages,
-          { role: 'user', content: req.userMessage },
-        ],
-        // FIX: was 1024 Ã¢â‚¬â€ too short for Maharashtra board 5-mark answers (~500-800 words).
-        // At ~4 chars/token, 1024 tokens Ã¢â€°Ë† 400 words Ã¢â‚¬â€ answers were cut off mid-sentence.
-    max_tokens: 4000,
-        // FIX: lowered temperature for more consistent board-style answers
-        temperature: 0.2,
-      }),
-    });
-
-    if (!response.ok) {
-      const errBody = await response.text();
-      console.error('[Groq HTTP error]', response.status, errBody);
-    }
-
-    const data = (await response.json()) as {
-      choices: { message: { content: string } }[];
-    };
-
-    const text = data.choices?.[0]?.message?.content;
-
-    if (!text) {
-      throw new Error('Groq unavailable');
-    }
-
-    return { text };
-  } catch {
-    throw new Error('Groq unavailable');
-  }
+function isOpen(): boolean {
+  if (failures >= THRESHOLD && Date.now() - lastFailure < COOLDOWN) return true;
+  if (Date.now() - lastFailure >= COOLDOWN) failures = 0;
+  return false;
 }
+function recordFail() { failures++; lastFailure = Date.now(); }
+function recordOk() { failures = 0; }
 
+const fetchWithTimeout = (url: string, opts: RequestInit, ms = 12000) => {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(id));
+};
+
+const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'llama-3.1-70b-versatile'];
+
+export async function askGroq(req: GroqRequest): Promise<{ text: string }> {
+  if (isOpen()) throw new Error('Groq circuit open');
+
+  const historyMessages = (req.history ?? []).map((m) => ({
+    role: m.role === 'model' ? 'assistant' : 'user',
+    content: m.text,
+  }));
+
+  let lastErr = '';
+
+  for (const model of GROQ_MODELS) {
+    try {
+      const response = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${config.GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: req.systemPrompt },
+            ...historyMessages,
+            { role: 'user', content: req.userMessage },
+          ],
+          max_tokens: 2048,
+          temperature: 0.2,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        console.error(`[Groq ${model}]`, response.status, err);
+        if (response.status === 429) recordFail();
+        lastErr = `${model}: ${response.status}`;
+        continue;
+      }
+
+      const data = (await response.json()) as { choices: { message: { content: string } }[] };
+      const text = data.choices?.[0]?.message?.content;
+      if (!text) { lastErr = `${model}: empty`; continue; }
+
+      recordOk();
+      console.log(`[Groq] ✅ ${model}`);
+      return { text };
+    } catch (e: any) {
+      lastErr = `${model}: ${e.message}`;
+      console.error(`[Groq ${model}]`, e.message);
+    }
+  }
+
+  throw new Error(`Groq exhausted: ${lastErr}`);
+}

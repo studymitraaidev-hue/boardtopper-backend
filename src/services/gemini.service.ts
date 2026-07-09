@@ -1,17 +1,13 @@
-
 import config from '../config/env';
 import { askGroq } from './groq.service';
 import { askOpenRouter } from './openrouter.service';
 import { askMistral } from './mistral.service';
 
-
-
 export interface GeminiRequest {
   systemPrompt: string;
   userMessage: string;
-  // FIX: history is now actually used when building the contents array
   history?: { role: 'user' | 'model'; text: string }[];
-  imageBase64?:   string;
+  imageBase64?: string;
   imageMimeType?: 'image/jpeg' | 'image/png' | 'image/webp';
 }
 
@@ -21,124 +17,58 @@ export interface GeminiResponse {
 }
 
 export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
+  // 1. Try Gemini
   try {
-    // FIX: Build multi-turn contents array from history + current message.
-    // Previously, history was accepted in the interface but silently discarded Ã¢â‚¬â€
-    // every question was answered without any conversation context.
-    const userParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
-
-    if (req.imageBase64 && req.imageMimeType) {
-      userParts.push({
-        inlineData: {
-          mimeType: req.imageMimeType,
-          data:     req.imageBase64,
-        },
-      });
-    }
-
-    userParts.push({ text: req.userMessage });
-
-    const contents = [
-      ...(req.history ?? []).map((m) => ({
-        role:  m.role === 'model' ? 'model' : 'user',
-        parts: [{ text: m.text }],
-      })),
-      { role: 'user', parts: userParts },
-    ];
-
     const { GoogleGenAI } = await import('@google/genai');
     const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
-    const response = await ai.models.generateContent({
-      model:    'gemini-2.5-flash-lite',
+    const contents = req.history
+      ? req.history.map((h) => `${h.role === 'model' ? 'A' : 'Q'}: ${h.text}`).join('\n') + `\nQ: ${req.userMessage}`
+      : req.userMessage;
+
+    const result = await ai.models.generateContent({
+      model: 'gemini-1.5-flash',
       contents,
-      config: {
-        systemInstruction: req.systemPrompt,
-      },
     });
-
-    const text = response.text;
-
-    if (!text) {
-      throw new Error('Empty response from AI model');
-    }
-
-    return { text, tokensUsed: undefined };
-  } catch (err: unknown) {
-    if (err instanceof Error) {
-    console.error('[Gemini original error]', err);
-      const msg = err.message.toLowerCase();
-      if (
-        msg.includes('api key') ||
-        msg.includes('unauthorized') ||
-        msg.includes('permission')
-      ) {
-        throw new Error('AI service configuration error. Please contact support.');
-      }
-      if (
-        msg.includes('quota') ||
-        msg.includes('rate limit') ||
-        msg.includes('resource exhausted')
-      ) {
-        try {
-          const groqResult = await askGroq({
-            systemPrompt: req.systemPrompt,
-            userMessage:  req.userMessage,
-            history:      req.history,
-          });
-          return { text: groqResult.text, tokensUsed: undefined };
-        } catch (groqErr) {
-          console.error('[Groq fallback error]', groqErr);
-        }
-        try {
-          const orResult = await askOpenRouter({
-            systemPrompt: req.systemPrompt,
-            userMessage:  req.userMessage,
-            history:      req.history,
-          });
-          return { text: orResult.text, tokensUsed: undefined };
-        } catch (orErr) {
-          console.error('[OpenRouter fallback error]', orErr);
-        }
-        try {
-          const mistralResult = await askMistral({
-            systemPrompt: req.systemPrompt,
-            userMessage:  req.userMessage,
-            history:      req.history,
-          });
-          return { text: mistralResult.text, tokensUsed: undefined };
-        } catch (mistralErr) {
-          console.error('[Mistral fallback error]', mistralErr);
-        }
-        throw new Error('AI service is currently busy. Please try again in a moment.');
-      }
-      if (msg.includes('empty response')) {
-        throw new Error(
-          'AI service returned an empty response. Please rephrase your question.'
-        );
-      }
-    }
-
-    try {
-      const groqResult = await askGroq({
-        systemPrompt: req.systemPrompt,
-        userMessage:  req.userMessage,
-        history:      req.history,
-      });
-      return { text: groqResult.text, tokensUsed: undefined };
-    } catch {
-      // Groq also failed Ã¢â‚¬â€ throw original error
-    }
-    try {
-      const orResult = await askOpenRouter({
-        systemPrompt: req.systemPrompt,
-        userMessage:  req.userMessage,
-        history:      req.history,
-      });
-      return { text: orResult.text, tokensUsed: undefined };
-    } catch (orErr) {
-      console.error('[OpenRouter fallback error]', orErr);
-    }
-
-    throw new Error('AI service encountered an unexpected error. Please try again.');
+    if (result.text) return { text: result.text };
+  } catch (e: any) {
+    console.error('[Gemini primary]', e.status || e.message);
   }
+
+  // 2. Try Groq
+  try {
+    const { text } = await askGroq({
+      systemPrompt: req.systemPrompt,
+      userMessage: req.userMessage,
+      history: req.history,
+    });
+    return { text };
+  } catch (e: any) {
+    console.error('[Gemini→Groq]', e.message);
+  }
+
+  // 3. Try OpenRouter
+  try {
+    const { text } = await askOpenRouter({
+      systemPrompt: req.systemPrompt,
+      userMessage: req.userMessage,
+      history: req.history,
+    });
+    return { text };
+  } catch (e: any) {
+    console.error('[Gemini→OpenRouter]', e.message);
+  }
+
+  // 4. Try Mistral
+  try {
+    const { text } = await askMistral({
+      systemPrompt: req.systemPrompt,
+      userMessage: req.userMessage,
+      history: req.history,
+    });
+    return { text };
+  } catch (e: any) {
+    console.error('[Gemini→Mistral]', e.message);
+  }
+
+  throw new Error('All AI providers failed. Please try again in a moment.');
 }
