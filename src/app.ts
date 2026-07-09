@@ -53,6 +53,7 @@ import searchRoutes from './routes/search.routes';
 
 // ── Day 34: Notifications ─────────────────────────────────────────────────────
 import notificationRoutes from './routes/notifications.routes';
+import historyRoutes from './routes/history.routes';
 
 // ── Day 8: Webhook handler (imported directly for pre-json registration) ──────
 import { handleWebhook } from './controllers/webhook.controller';
@@ -141,6 +142,7 @@ app.use('/api/search', searchRoutes);
 
 // ── Day 34: Notifications ─────────────────────────────────────────────────────
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/history', historyRoutes);
 
 // ── 404 handler — must come after all routes ─────────────────────────────────
 app.use(notFound);
