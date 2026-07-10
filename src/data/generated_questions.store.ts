@@ -5,8 +5,8 @@ export interface GeneratedQuestion {
   chapterId: string;
   subjectId: string;
   question: string;
-  options: string[];        // exactly 4 strings
-  correctIndex: number;     // 0-3
+  options: string[];      // exactly 4 strings
+  correctIndex: number;  // 0-3
   difficulty: 'easy' | 'medium' | 'hard';
   marks: number;
   createdAt: string;
@@ -34,14 +34,12 @@ function toQuestion(row: DBRow): GeneratedQuestion {
     question:     row.question,
     options:      row.options as string[],
     correctIndex: row.correct_index,
-    difficulty:   row.difficulty as 'easy' | 'medium' | 'hard',
+    difficulty:  row.difficulty as 'easy' | 'medium' | 'hard',
     marks:        row.marks,
     createdAt:    row.created_at,
     expiresAt:    row.expires_at,
   };
 }
-
-/** Fetch non-expired cached questions for a chapter (up to limit) */
 
 export function shuffleArray<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -51,6 +49,8 @@ export function shuffleArray<T>(arr: T[]): T[] {
   }
   return a;
 }
+
+/** Fetch non-expired cached questions for a chapter (up to limit) */
 export async function getCachedQuestions(
   chapterId: string,
   limit: number
@@ -81,6 +81,10 @@ export async function saveGeneratedQuestions(
     .eq('chapter_id', questions[0].chapterId)
     .lt('expires_at', new Date().toISOString());
 
+  // Set expiration to 24 hours from now
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const createdAt = new Date().toISOString();
+
   const rows = questions.map((q) => ({
     chapter_id:    q.chapterId,
     subject_id:    q.subjectId,
@@ -89,13 +93,14 @@ export async function saveGeneratedQuestions(
     correct_index: q.correctIndex,
     difficulty:    q.difficulty,
     marks:         q.marks,
+    created_at:    createdAt,
+    expires_at:    expiresAt,
   }));
 
   await supabase.from('generated_questions').insert(rows);
 }
 
 /** Fetch cached questions by subject (cross-chapter, for subject-level quiz) */
-
 export async function getCachedQuestionsBySubject(
   subjectId: string,
   limit: number
