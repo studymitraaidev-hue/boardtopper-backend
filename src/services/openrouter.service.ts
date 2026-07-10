@@ -7,11 +7,11 @@ export interface OpenRouterRequest {
 }
 
 const FREE_MODELS = [
-  'google/gemini-2.0-flash-exp:free',
+  'meta-llama/llama-3.3-70b-instruct:free',
   'meta-llama/llama-3.1-8b-instruct:free',
-  'deepseek/deepseek-chat:free',
   'nousresearch/hermes-3-llama-3.1-405b:free',
   'huggingfaceh4/zephyr-7b-beta:free',
+  'openrouter/free',
 ];
 
 const fetchWithTimeout = (url: string, opts: RequestInit, ms = 15000) => {
