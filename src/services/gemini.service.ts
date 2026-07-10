@@ -34,16 +34,16 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
     console.error('[Gemini primary]', e.status || e.message);
   }
 
-  // 2. Try Groq
+  // 2. Try Mistral
   try {
-    const { text } = await askGroq({
+    const { text } = await askMistral({
       systemPrompt: req.systemPrompt,
       userMessage: req.userMessage,
       history: req.history,
     });
     return { text };
   } catch (e: any) {
-    console.error('[Gemini→Groq]', e.message);
+    console.error('[Gemini->Mistral]', e.message);
   }
 
   // 3. Try OpenRouter
@@ -55,19 +55,19 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
     });
     return { text };
   } catch (e: any) {
-    console.error('[Gemini→OpenRouter]', e.message);
+    console.error('[Gemini->OpenRouter]', e.message);
   }
 
-  // 4. Try Mistral
+  // 4. Try Groq (last — smallest daily token budget)
   try {
-    const { text } = await askMistral({
+    const { text } = await askGroq({
       systemPrompt: req.systemPrompt,
       userMessage: req.userMessage,
       history: req.history,
     });
     return { text };
   } catch (e: any) {
-    console.error('[Gemini→Mistral]', e.message);
+    console.error('[Gemini->Groq]', e.message);
   }
 
   throw new Error('All AI providers failed. Please try again in a moment.');
