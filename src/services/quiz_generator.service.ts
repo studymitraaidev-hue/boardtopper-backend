@@ -9,6 +9,12 @@ export interface RawQuestion {
   marks: number;
 }
 
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
 export async function generateMCQs(params: {
   subjectName: string;
   chapterName: string;
@@ -30,7 +36,7 @@ STRICT RULES:
 2. Each question must have exactly 4 options (A, B, C, D)
 3. Only ONE correct answer per question
 4. Include a mix of easy, medium, and hard questions
-5. Return ONLY a valid JSON array. No markdown, no explanation.
+5. Return ONLY a valid JSON array. No markdown, no explanation, no code blocks.
 
 JSON format:
 [
@@ -43,30 +49,63 @@ JSON format:
   }
 ]`;
 
-  try {
-    const result = await askGemini({
-      systemPrompt: 'You are an expert Maharashtra SSC board exam question setter. Return ONLY valid JSON array. No markdown.',
-      userMessage: prompt,
-    });
+  // Try up to 3 times with different providers via fallback
+  let lastErr = '';
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const result = await askGemini({
+        systemPrompt: 'You are an expert Maharashtra SSC board exam question setter. Return ONLY valid JSON array. No markdown, no code blocks, no extra text.',
+        userMessage: prompt,
+      });
 
-    const text = result.text.trim();
-    const jsonMatch = text.match(/\[.*\]/s);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed as RawQuestion[];
+      const text = result.text.trim();
+      
+      // Try multiple JSON extraction methods
+      let parsed: any;
+      
+      // Method 1: Extract JSON array from code blocks
+      const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        try { parsed = JSON.parse(codeBlockMatch[1]); } catch { /* ignore */ }
       }
+      
+      // Method 2: Extract raw JSON array
+      if (!parsed) {
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          try { parsed = JSON.parse(jsonMatch[0]); } catch { /* ignore */ }
+        }
+      }
+      
+      // Method 3: Parse entire response
+      if (!parsed) {
+        try { parsed = JSON.parse(text); } catch { /* ignore */ }
+      }
+
+      if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+        // Validate each question has required fields
+        const valid = parsed.every((q: any) => 
+          q.question && 
+          Array.isArray(q.options) && 
+          q.options.length === 4 &&
+          typeof q.correct_index === 'number' &&
+          ['easy', 'medium', 'hard'].includes(q.difficulty)
+        );
+        
+        if (valid) {
+          logger.info(`[QuizGen] ✅ Generated ${parsed.length} questions on attempt ${attempt}`);
+          return parsed as RawQuestion[];
+        }
+      }
+      
+      lastErr = `Attempt ${attempt}: Invalid format or validation failed`;
+      logger.warn(`[QuizGen] ${lastErr}`);
+      
+    } catch (err: any) {
+      lastErr = `Attempt ${attempt}: ${err.message}`;
+      logger.error(`[QuizGen] ${lastErr}`);
     }
-    
-    // Try parsing the whole response
-    const parsed = JSON.parse(text);
-    if (Array.isArray(parsed)) {
-      return parsed as RawQuestion[];
-    }
-    
-    throw new Error('Invalid response format');
-  } catch (err: any) {
-    logger.error('[Quiz Generator] Failed:', err.message);
-    throw new Error('Quiz generation failed. Please try again.');
   }
+
+  throw new Error(`Quiz generation failed after 3 attempts. ${lastErr}`);
 }
