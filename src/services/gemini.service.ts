@@ -1,5 +1,6 @@
 import config from '../config/env';
 import { askGroq } from './groq.service';
+import { askCerebras } from './cerebras.service';
 import { askOpenRouter } from './openrouter.service';
 import { askMistral } from './mistral.service';
 
@@ -17,24 +18,21 @@ export interface GeminiResponse {
 }
 
 export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
-  // 1. Try Gemini with multiple model names
-  const geminiModels = ['gemini-2.0-flash-exp', 'gemini-1.5-flash-latest', 'gemini-1.5-flash'];
-  for (const modelName of geminiModels) {
-    try {
-      const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
-      const contents = req.history
-        ? req.history.map((h) => `${h.role === 'model' ? 'A' : 'Q'}: ${h.text}`).join('\n') + `\nQ: ${req.userMessage}`
-        : req.userMessage;
+  // 1. Try Gemini with working model
+  try {
+    const { GoogleGenAI } = await import('@google/genai');
+    const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
+    const contents = req.history
+      ? req.history.map((h) => `${h.role === 'model' ? 'A' : 'Q'}: ${h.text}`).join('\n') + `\nQ: ${req.userMessage}`
+      : req.userMessage;
 
-      const result = await ai.models.generateContent({ model: modelName, contents });
-      if (result.text) {
-        console.log(`[Gemini] ✅ ${modelName}`);
-        return { text: result.text };
-      }
-    } catch (e: any) {
-      console.error(`[Gemini ${modelName}]`, e.status || e.message);
+    const result = await ai.models.generateContent({ model: 'gemini-3.1-flash-lite', contents });
+    if (result.text) {
+      console.log('[Gemini] ✅ gemini-3.1-flash-lite');
+      return { text: result.text };
     }
+  } catch (e: any) {
+    console.error('[Gemini]', e.status || e.message);
   }
 
   // 2. Try Groq
@@ -49,7 +47,19 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
     console.error('[Gemini→Groq]', e.message);
   }
 
-  // 3. Try OpenRouter
+  // 3. Try Cerebras
+  try {
+    const { text } = await askCerebras({
+      systemPrompt: req.systemPrompt,
+      userMessage: req.userMessage,
+      history: req.history,
+    });
+    return { text };
+  } catch (e: any) {
+    console.error('[Gemini→Cerebras]', e.message);
+  }
+
+  // 4. Try OpenRouter
   try {
     const { text } = await askOpenRouter({
       systemPrompt: req.systemPrompt,
@@ -61,7 +71,7 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
     console.error('[Gemini→OpenRouter]', e.message);
   }
 
-  // 4. Try Mistral
+  // 5. Try Mistral
   try {
     const { text } = await askMistral({
       systemPrompt: req.systemPrompt,
