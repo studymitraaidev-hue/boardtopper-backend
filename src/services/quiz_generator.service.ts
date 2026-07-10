@@ -1,5 +1,4 @@
-﻿import { askGroq } from './groq.service';
-import config from '../config/env';
+import { askGemini } from './gemini.service';
 import logger from '../utils/logger';
 
 export interface RawQuestion {
@@ -28,71 +27,46 @@ Key Topics: ${topicList}
 
 STRICT RULES:
 1. Questions must match Maharashtra SSC board exam pattern and difficulty
-2. Each question must have EXACTLY 4 options (A, B, C, D style content in array)
-3. correct_index is 0-based (0=first option, 1=second, 2=third, 3=fourth)
-4. Mix difficulty: include 40% easy (1 mark), 40% medium (2 marks), 20% hard (4 marks)
-5. DO NOT repeat the same concept twice
-6. For Science/Maths: include numerical application questions
-7. For History/Geography: include map-based or date-based questions
-8. All questions must be solvable from Maharashtra SSC Class 10 textbook
+2. Each question must have exactly 4 options (A, B, C, D)
+3. Only ONE correct answer per question
+4. Include a mix of easy, medium, and hard questions
+5. Return ONLY a valid JSON array. No markdown, no explanation.
 
-RETURN ONLY this JSON array, no markdown, no explanation, no extra text:
+JSON format:
 [
   {
-    "question": "Question text here?",
-    "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
+    "question": "What is...?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
     "correct_index": 0,
-    "difficulty": "easy",
+    "difficulty": "medium",
     "marks": 1
   }
 ]`;
 
-  const parseQuestions = (text: string, count: number): RawQuestion[] => {
-    const cleaned = text.replace(/```json|```/g, '').trim();
-    const parsed: unknown = JSON.parse(cleaned);
-    if (!Array.isArray(parsed)) throw new Error('non-array');
-    return (parsed as Record<string, unknown>[]).filter(item =>
-      typeof item['question'] === 'string' &&
-      Array.isArray(item['options']) &&
-      (item['options'] as unknown[]).length === 4 &&
-      typeof item['correct_index'] === 'number' &&
-      Number(item['correct_index']) >= 0 &&
-      Number(item['correct_index']) <= 3
-    ).slice(0, count).map(item => ({
-      question: String(item['question']),
-      options: (item['options'] as unknown[]).map(String),
-      correct_index: Number(item['correct_index']),
-      difficulty: (['easy','medium','hard'].includes(String(item['difficulty'])))
-        ? item['difficulty'] as 'easy'|'medium'|'hard' : 'medium',
-      marks: typeof item['marks'] === 'number' ? Number(item['marks']) : 2,
-    }));
-  };
-
-  // Try Groq first
   try {
-    const g = await askGroq({ systemPrompt: 'Return ONLY a JSON array, no markdown.', userMessage: prompt });
-    const valid = parseQuestions(g.text, count);
-    logger.info(`[QuizGen] Groq generated ${valid.length}/${count} questions for ${chapterName}`);
-    return valid;
-  } catch (err) {
-    logger.error(`[QuizGen] Groq failed for ${chapterName}: ${String(err)}`);
-  }
-
-  // Fallback to Gemini
-  try {
-    const { GoogleGenAI } = await import('@google/genai');
-    const ai = new GoogleGenAI({ apiKey: config.GEMINI_API_KEY });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: { temperature: 0.7, maxOutputTokens: 4096 },
+    const result = await askGemini({
+      systemPrompt: 'You are an expert Maharashtra SSC board exam question setter. Return ONLY valid JSON array. No markdown.',
+      userMessage: prompt,
     });
-    const raw = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    const valid = parseQuestions(raw, count);
-    logger.info(`[QuizGen] Gemini generated ${valid.length}/${count} questions for ${chapterName}`);
-    return valid;
-  } catch (err) {
-    logger.error(`[QuizGen] Gemini also failed for ${chapterName}: ${String(err)}`);
-    throw new Error('Quiz generation failed');
+
+    const text = result.text.trim();
+    const jsonMatch = text.match(/\[.*\]/s);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed as RawQuestion[];
+      }
+    }
+    
+    // Try parsing the whole response
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) {
+      return parsed as RawQuestion[];
+    }
+    
+    throw new Error('Invalid response format');
+  } catch (err: any) {
+    logger.error('[Quiz Generator] Failed:', err.message);
+    throw new Error('Quiz generation failed. Please try again.');
   }
 }
