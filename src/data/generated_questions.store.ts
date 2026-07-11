@@ -74,6 +74,13 @@ export async function saveGeneratedQuestions(
 ): Promise<void> {
   if (questions.length === 0) return;
 
+  // Reject dummy/fallback questions — never cache them
+  questions = questions.filter(q =>
+    !q.question.includes("temporarily unavailable") &&
+    !q.question.startsWith("Practice question")
+  );
+  if (questions.length === 0) return;
+
   // Remove expired entries for this chapter first
   await supabase
     .from('generated_questions')
