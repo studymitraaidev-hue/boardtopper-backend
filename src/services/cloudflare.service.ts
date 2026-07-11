@@ -28,7 +28,7 @@ export async function askCloudflare({
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
       ],
-      response_format: { type: 'json_object' },
+      max_tokens: 4096,
     }),
   });
 

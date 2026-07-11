@@ -26,7 +26,16 @@ function extractJSON(text: string): any[] | null {
     try { return JSON.parse(arrayMatch[0]); } catch { /* ignore */ }
   }
 
-  // Method 3: Find any JSON array
+  // Method 3: Find comma-separated JSON objects and wrap in array
+  const objectMatch = text.match(/(\{[\s\S]*?\}\s*,?\s*)+/);
+  if (objectMatch) {
+    try { 
+      const wrapped = '[' + objectMatch[0].replace(/,\s*$/, '') + ']';
+      return JSON.parse(wrapped); 
+    } catch { /* ignore */ }
+  }
+
+  // Method 3b: Find any JSON array
   const looseMatch = text.match(/\[[\s\S]*?\]/);
   if (looseMatch) {
     try { return JSON.parse(looseMatch[0]); } catch { /* ignore */ }
