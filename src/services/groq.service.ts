@@ -26,7 +26,7 @@ const fetchWithTimeout = (url: string, opts: RequestInit, ms = 12000) => {
   return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(id));
 };
 
-const GROQ_MODELS = ['llama-3.1-8b-instant', 'llama-3.1-8b-instant', 'llama-3.1-70b-versatile'];
+const GROQ_MODELS = ['openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
 
 export async function askGroq(req: GroqRequest): Promise<{ text: string }> {
   if (isOpen()) throw new Error('Groq circuit open');
