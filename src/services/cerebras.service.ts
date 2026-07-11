@@ -6,16 +6,15 @@ export interface CerebrasRequest {
   history?: { role: 'user' | 'model'; text: string }[];
 }
 
-const CEREBRAS_MODELS = ['gpt-oss-120b', 'zai-glm-4.7', 'gemma-4-31b'];
+const CEREBRAS_MODELS = ['llama-3.3-70b', 'llama3.1-8b'];
 
 export async function askCerebras(req: CerebrasRequest): Promise<{ text: string }> {
-  const messages = [
-    { role: 'system', content: req.systemPrompt },
-    ...(req.history ?? []).map((m) => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text })),
-    { role: 'user', content: req.userMessage },
-  ];
+  const historyMessages = (req.history ?? []).map((m) => ({
+    role: m.role === 'model' ? 'assistant' : 'user',
+    content: m.text,
+  }));
 
-  let lastErr = '';
+  let lastError: Error | null = null;
 
   for (const model of CEREBRAS_MODELS) {
     try {
@@ -25,27 +24,43 @@ export async function askCerebras(req: CerebrasRequest): Promise<{ text: string 
           Authorization: `Bearer ${config.CEREBRAS_API_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ model, messages, max_tokens: 2048, temperature: 0.2 }),
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: req.systemPrompt },
+            ...historyMessages,
+            { role: 'user', content: req.userMessage },
+          ],
+          max_tokens: 2048,
+          temperature: 0.2,
+        }),
       });
 
       if (!response.ok) {
-        const err = await response.text();
-        console.error(`[Cerebras ${model}]`, response.status, err);
-        lastErr = `${model}: ${response.status}`;
+        const errBody = await response.text();
+        console.error(`[Cerebras HTTP error] model=${model}`, response.status, errBody);
+        lastError = new Error(`Cerebras ${model} unavailable`);
         continue;
       }
 
-      const data = (await response.json()) as { choices: { message: { content: string } }[] };
+      const data = (await response.json()) as {
+        choices: { message: { content: string } }[];
+      };
+
       const text = data.choices?.[0]?.message?.content;
-      if (!text) { lastErr = `${model}: empty`; continue; }
+      if (!text) {
+        lastError = new Error(`Cerebras ${model} empty response`);
+        continue;
+      }
 
       console.log(`[Cerebras] ✅ ${model}`);
       return { text };
     } catch (e: any) {
-      lastErr = `${model}: ${e.message}`;
-      console.error(`[Cerebras ${model}]`, e.message);
+      console.error(`[Cerebras exception] model=${model}`, e.message);
+      lastError = e;
+      continue;
     }
   }
 
-  throw new Error(`Cerebras exhausted: ${lastErr}`);
+  throw lastError ?? new Error('Cerebras unavailable');
 }
