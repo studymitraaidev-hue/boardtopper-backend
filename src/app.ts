@@ -97,7 +97,7 @@ app.post(
   (req, res, next) => { handleWebhook(req, res).catch(next); }
 );
 
-app.use(express.json({ limit: '10kb' }));
+app.use(express.json({ limit: '10mb' }));
 app.use(generalLimiter);
 app.use(requestLogger);
 
