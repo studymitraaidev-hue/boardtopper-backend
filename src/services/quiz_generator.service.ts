@@ -14,13 +14,15 @@ export interface RawQuestion {
 }
 
 function extractJSON(text: string): any[] | null {
+  if (!text || typeof text !== "string") return null;
+
   // Method 1: Extract from markdown code blocks
   const codeBlockMatch = text.match(/` +  + `(?:json)?\s*\n?([\s\S]*?)\n?` +  + `/);
   if (codeBlockMatch) {
     try { return JSON.parse(codeBlockMatch[1].trim()); } catch { /* ignore */ }
   }
 
-  // Method 2: Find raw JSON array (non-greedy)
+  // Method 2: Find raw JSON array
   const arrayMatch = text.match(/\[\s*\{[\s\S]*?\}\s*\]/);
   if (arrayMatch) {
     try { return JSON.parse(arrayMatch[0]); } catch { /* ignore */ }
@@ -29,19 +31,19 @@ function extractJSON(text: string): any[] | null {
   // Method 3: Find comma-separated JSON objects and wrap in array
   const objectMatch = text.match(/(\{[\s\S]*?\}\s*,?\s*)+/);
   if (objectMatch) {
-    try { 
-      const wrapped = '[' + objectMatch[0].replace(/,\s*$/, '') + ']';
-      return JSON.parse(wrapped); 
+    try {
+      const wrapped = "[" + objectMatch[0].replace(/,\s*$/, "") + "]";
+      return JSON.parse(wrapped);
     } catch { /* ignore */ }
   }
 
-  // Method 3b: Find any JSON array
+  // Method 4: Find any JSON array
   const looseMatch = text.match(/\[[\s\S]*?\]/);
   if (looseMatch) {
     try { return JSON.parse(looseMatch[0]); } catch { /* ignore */ }
   }
 
-  // Method 4: Parse entire text
+  // Method 5: Parse entire text
   try { return JSON.parse(text.trim()); } catch { /* ignore */ }
 
   return null;

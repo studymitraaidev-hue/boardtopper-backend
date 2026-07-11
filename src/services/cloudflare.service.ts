@@ -38,8 +38,8 @@ export async function askCloudflare({
   }
 
   const data: any = await response.json();
-  const text = data.result?.response || '';
+  const text = data.result?.response || data.result?.content || data.result?.text || '';
   
-  logger.info(`[Cloudflare] ✅ generated ${text.length} chars`);
+  logger.info(`[Cloudflare] generated ${text.length} chars`);
   return { text };
 }
