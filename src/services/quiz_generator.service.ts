@@ -133,12 +133,6 @@ export async function generateMCQs(params: {
     }
   }
 
-  logger.error('[QuizGen] All providers failed');
-  return Array.from({length: count}, (_, i) => ({
-    question: `Q${i+1} for ${chapterName} (AI temporarily unavailable - please retry)`,
-    options: ['Option A', 'Option B', 'Option C', 'Option D'],
-    correct_index: 0,
-    difficulty: 'medium',
-    marks: 1,
-  }));
+  logger.error(`[QuizGen] All providers failed for ${chapterName}`);
+  throw new Error(`Quiz generation failed for ${chapterName}. Please try again.`);
 }
