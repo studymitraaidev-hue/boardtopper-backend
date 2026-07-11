@@ -73,7 +73,7 @@ function buildQualityPrompt(subject: string, chapter: string, topics: string[], 
   
   return `You are an expert Maharashtra State Board SSC Class 10 ${subject} teacher with 20 years of experience.
 
-Generate ${count} MCQ questions for:
+Generate exactly 5 MCQ questions (minimum 5, maximum 10) for:
 Chapter: ${chapter}
 Topics: ${topicList}
 
@@ -89,7 +89,7 @@ FORMAT:
   {"question":"What is...?","options":["A","B","C","D"],"correct_index":0,"difficulty":"easy","marks":1}
 ]
 
-Generate ${count} questions now. Return ONLY the JSON array.`;
+Generate exactly 5 questions now. Return ONLY the JSON array.`;
 }
 
 export async function generateMCQs(params: {
