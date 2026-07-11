@@ -6,7 +6,7 @@ export interface CerebrasRequest {
   history?: { role: 'user' | 'model'; text: string }[];
 }
 
-const CEREBRAS_MODELS = ['llama-3.3-70b', 'llama3.1-8b'];
+const CEREBRAS_MODELS = ['llama-3.3-70b', 'llama-3.1-8b'];
 
 export async function askCerebras(req: CerebrasRequest): Promise<{ text: string }> {
   const historyMessages = (req.history ?? []).map((m) => ({
