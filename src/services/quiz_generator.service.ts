@@ -15,20 +15,26 @@ export interface RawQuestion {
 
 function extractJSON(text: string): any[] | null {
   // Method 1: Extract from markdown code blocks
-  const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  const codeBlockMatch = text.match(/` +  + `(?:json)?\s*\n?([\s\S]*?)\n?` +  + `/);
   if (codeBlockMatch) {
     try { return JSON.parse(codeBlockMatch[1].trim()); } catch { /* ignore */ }
   }
-  
-  // Method 2: Find raw JSON array
-  const arrayMatch = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+
+  // Method 2: Find raw JSON array (non-greedy)
+  const arrayMatch = text.match(/\[\s*\{[\s\S]*?\}\s*\]/);
   if (arrayMatch) {
     try { return JSON.parse(arrayMatch[0]); } catch { /* ignore */ }
   }
-  
-  // Method 3: Parse entire text
+
+  // Method 3: Find any JSON array
+  const looseMatch = text.match(/\[[\s\S]*?\]/);
+  if (looseMatch) {
+    try { return JSON.parse(looseMatch[0]); } catch { /* ignore */ }
+  }
+
+  // Method 4: Parse entire text
   try { return JSON.parse(text.trim()); } catch { /* ignore */ }
-  
+
   return null;
 }
 
@@ -100,6 +106,7 @@ export async function generateMCQs(params: {
       const json = extractJSON(result.text);
       if (!json) {
         console.warn(`[QuizGen] ${provider.name}: no JSON found in response`);
+        console.warn(`[QuizGen] ${provider.name}: raw response:`, result.text.substring(0, 1000));
         continue;
       }
 
