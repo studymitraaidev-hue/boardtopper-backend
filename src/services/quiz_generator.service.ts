@@ -1,6 +1,7 @@
 import { askGroq } from './groq.service';
 import { askOpenRouter } from './openrouter.service';
 import { askMistral } from './mistral.service';
+import { askCerebras } from './cerebras.service';
 import logger from '../utils/logger';
 
 export interface RawQuestion {
@@ -12,63 +13,65 @@ export interface RawQuestion {
 }
 
 function extractJSON(text: string): any[] | null {
-  const codeMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  if (codeMatch) { try { return JSON.parse(codeMatch[1]); } catch {} }
-  const arrayMatch = text.match(/\[[\s\S]*\]/);
-  if (arrayMatch) { try { return JSON.parse(arrayMatch[0]); } catch {} }
-  try { return JSON.parse(text); } catch {}
+  // Method 1: Extract from markdown code blocks
+  const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (codeBlockMatch) {
+    try { return JSON.parse(codeBlockMatch[1].trim()); } catch { /* ignore */ }
+  }
+  
+  // Method 2: Find raw JSON array
+  const arrayMatch = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+  if (arrayMatch) {
+    try { return JSON.parse(arrayMatch[0]); } catch { /* ignore */ }
+  }
+  
+  // Method 3: Parse entire text
+  try { return JSON.parse(text.trim()); } catch { /* ignore */ }
+  
   return null;
 }
 
 function validateQuestions(data: any[]): RawQuestion[] {
+  if (!Array.isArray(data)) return [];
+  
   return data.filter((q: any) => 
-    q.question && q.question.length > 10 &&
-    Array.isArray(q.options) && q.options.length >= 2 &&
+    q && 
+    typeof q.question === 'string' && 
+    q.question.length > 5 &&
+    Array.isArray(q.options) && 
+    q.options.length >= 2 &&
     typeof q.correct_index === 'number'
   ).map((q: any) => ({
-    question: q.question,
+    question: q.question.trim(),
     options: q.options.slice(0, 4).concat(Array(Math.max(0, 4 - q.options.length)).fill('')),
     correct_index: Math.min(3, Math.max(0, q.correct_index)),
     difficulty: ['easy','medium','hard'].includes(q.difficulty) ? q.difficulty : 'medium',
-    marks: q.marks || 1,
+    marks: typeof q.marks === 'number' ? q.marks : 1,
   }));
 }
 
-// HIGH-QUALITY PROMPT - Under 1,500 tokens to fit Groq 6K limit
-// Includes: board pattern, difficulty mix, conceptual variety, proper format
 function buildQualityPrompt(subject: string, chapter: string, topics: string[], count: number): string {
   const topicList = topics.slice(0, 10).join(', ');
   
   return `You are an expert Maharashtra State Board SSC Class 10 ${subject} teacher with 20 years of experience.
 
-Generate ${count} HIGH-QUALITY MCQ questions for:
+Generate ${count} MCQ questions for:
 Chapter: ${chapter}
-Key Topics: ${topicList}
+Topics: ${topicList}
 
-QUALITY REQUIREMENTS:
-1. Match EXACT Maharashtra SSC board exam pattern (March 2025)
-2. Each question must test CONCEPTUAL understanding, not just memorization
-3. Include: definition-based, numerical, application, and diagram-related questions
-4. Options must be PLAUSIBLE distractors (common student mistakes)
-5. Use exact board exam terminology and marking scheme language
+RULES:
+1. Each question has exactly 4 options (A, B, C, D)
+2. Only ONE correct answer
+3. Mix: easy 30%, medium 50%, hard 20%
+4. Match Maharashtra SSC board exam style
+5. Return ONLY valid JSON array - no markdown, no extra text
 
-DIFFICULTY DISTRIBUTION:
-- Easy (30%): Direct recall, basic definitions
-- Medium (50%): Conceptual understanding, simple numerical
-- Hard (20%): Application, multi-step reasoning, tricky concepts
-
-FORMAT - Return ONLY valid JSON array:
+FORMAT:
 [
-  {
-    "question": "What is the SI unit of electric current?",
-    "options": ["Volt", "Ampere", "Ohm", "Watt"],
-    "correct_index": 1,
-    "difficulty": "easy",
-    "marks": 1
-  }
+  {"question":"What is...?","options":["A","B","C","D"],"correct_index":0,"difficulty":"easy","marks":1}
 ]
 
-Generate ${count} questions now. Return ONLY the JSON array. No markdown, no explanation.`;
+Generate ${count} questions now. Return ONLY the JSON array.`;
 }
 
 export async function generateMCQs(params: {
@@ -81,43 +84,29 @@ export async function generateMCQs(params: {
   const prompt = buildQualityPrompt(subjectName, chapterName, topics, count);
 
   const providers = [
-    { 
-      name: 'Groq', 
-      call: () => askGroq({ 
-        systemPrompt: 'You are an expert Maharashtra SSC board exam question setter. Create high-quality MCQs matching exact board pattern. Return ONLY valid JSON array.',
-        userMessage: prompt 
-      }) 
-    },
-    { 
-      name: 'OpenRouter', 
-      call: () => askOpenRouter({ 
-        systemPrompt: 'You are an expert Maharashtra SSC board exam question setter. Create high-quality MCQs matching exact board pattern. Return ONLY valid JSON array.',
-        userMessage: prompt 
-      }) 
-    },
-    { 
-      name: 'Mistral', 
-      call: () => askMistral({ 
-        systemPrompt: 'You are an expert Maharashtra SSC board exam question setter. Create high-quality MCQs matching exact board pattern. Return ONLY valid JSON array.',
-        userMessage: prompt 
-      }) 
-    },
+    { name: 'Groq', call: () => askGroq({ systemPrompt: 'You create Maharashtra SSC board exam MCQs. Return ONLY valid JSON array.', userMessage: prompt }) },
+    { name: 'Cerebras', call: () => askCerebras({ systemPrompt: 'You create Maharashtra SSC board exam MCQs. Return ONLY valid JSON array.', userMessage: prompt }) },
+    { name: 'OpenRouter', call: () => askOpenRouter({ systemPrompt: 'You create Maharashtra SSC board exam MCQs. Return ONLY valid JSON array.', userMessage: prompt }) },
+    { name: 'Mistral', call: () => askMistral({ systemPrompt: 'You create Maharashtra SSC board exam MCQs. Return ONLY valid JSON array.', userMessage: prompt }) },
   ];
 
   for (const provider of providers) {
     try {
       console.log(`[QuizGen] Trying ${provider.name}...`);
       const result = await provider.call();
+      
       const json = extractJSON(result.text);
       if (!json) {
-        console.warn(`[QuizGen] ${provider.name}: no valid JSON found`);
+        console.warn(`[QuizGen] ${provider.name}: no JSON found in response`);
         continue;
       }
+
       const questions = validateQuestions(json);
-      if (questions.length >= Math.max(1, count - 2)) {
-        logger.info(`[QuizGen] ✅ ${questions.length} quality questions from ${provider.name}`);
+      if (questions.length >= 1) {
+        logger.info(`[QuizGen] ✅ ${questions.length} questions from ${provider.name}`);
         return questions.slice(0, count);
       }
+      
       console.warn(`[QuizGen] ${provider.name}: only ${questions.length} valid questions`);
     } catch (err: any) {
       console.error(`[QuizGen] ❌ ${provider.name}: ${err.message}`);
