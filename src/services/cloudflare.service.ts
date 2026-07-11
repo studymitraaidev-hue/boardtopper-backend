@@ -38,7 +38,9 @@ export async function askCloudflare({
   }
 
   const data: any = await response.json();
-  const text = data.result?.response || data.result?.content || data.result?.text || '';
+  const raw = data.result?.response ?? data.result?.content ?? data.result?.text ?? '';
+  const text = typeof raw === 'string' ? raw : JSON.stringify(raw);
+  logger.info(`[Cloudflare] raw type=${typeof raw}, preview=${text.substring(0, 300)}`);
   
   logger.info(`[Cloudflare] generated ${text.length} chars`);
   return { text };
