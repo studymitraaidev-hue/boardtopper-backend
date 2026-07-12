@@ -2,7 +2,6 @@ import config from '../config/env';
 import { askGroq } from './groq.service';
 import { askCerebras } from './cerebras.service';
 import { askMistral } from './mistral.service';
-import { askOpenRouter } from './openrouter.service';
 
 export interface GeminiRequest {
   systemPrompt: string;
@@ -36,7 +35,7 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
       : req.userMessage;
 
     const result = await withTimeout(ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       contents,
     }), 10000);
     if (result.text) return { text: result.text };
@@ -78,18 +77,6 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
     return { text };
   } catch (e: any) {
     console.error('[Gemini->Mistral]', e.message);
-  }
-
-  // 5. Try OpenRouter (last — least reliable in practice)
-  try {
-    const { text } = await withTimeout(askOpenRouter({
-      systemPrompt: req.systemPrompt,
-      userMessage: req.userMessage,
-      history: req.history,
-    }), 10000);
-    return { text };
-  } catch (e: any) {
-    console.error('[Gemini->OpenRouter]', e.message);
   }
 
   throw new Error('All AI providers failed. Please try again in a moment.');
