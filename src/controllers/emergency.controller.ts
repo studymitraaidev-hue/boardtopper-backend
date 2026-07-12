@@ -31,6 +31,16 @@ interface EmergencyResponse {
     urgencyLevel:      'unknown' | 'low' | 'medium' | 'high' | 'panic';
     prioritySubjects:  string[];
   };
+  gameStats: {
+    bossName:          string;
+    bossHp:            number;
+    bossMaxHp:         number;
+    defeatedSections:  string[];
+    playerXp:          number;
+    playerLevel:       number;
+    subjectStrength:   Record<string, number>;
+  };
+  likelyQuestions:     LikelyQuestion[];
 }
 export interface LikelyQuestion {
   question:      string;
@@ -52,6 +62,49 @@ export interface LikelyQuestionsResponse {
 interface UserNoteRow     { title: string; content: string; updated_at: string; }
 interface ConversationRow { text: string; subject: string | null; timestamp: string; }
 interface ChapterRow      { name: string; topics: string[]; }
+
+
+// --- Game Stats Helper ---
+function buildGameStats(
+  examType: string,
+  weakSubjects: string[],
+  items: EmergencyItem[],
+  targetPercent: number,
+  streakCount: number
+) {
+  const bossNames: Record<string, string> = {
+    board: 'SSC Board Exam',
+    half_yearly: 'Half Yearly Exam',
+    unit_test: 'Unit Test Boss',
+  };
+  const bossName = bossNames[examType] || 'Exam Boss';
+  const totalSections = Math.max(items.length, 5);
+  const defeated = items.filter(i => i.tag?.includes('done') || i.tag?.includes('revised')).map(i => i.title);
+  const bossHp = Math.max(0, totalSections - defeated.length);
+  const bossMaxHp = totalSections;
+  const playerXp = (defeated.length * 100) + (streakCount * 50) + Math.floor(targetPercent);
+  const playerLevel = Math.floor(playerXp / 300) + 1;
+  
+  const subjectStrength: Record<string, number> = {};
+  const allSubjects = ['mathematics', 'science', 'english', 'marathi', 'hindi', 'history', 'geography'];
+  allSubjects.forEach(sub => {
+    const isWeak = weakSubjects.some(w => w.toLowerCase().includes(sub));
+    subjectStrength[sub] = isWeak ? Math.floor(Math.random() * 30 + 20) : Math.floor(Math.random() * 30 + 60);
+  });
+  weakSubjects.forEach(ws => {
+    subjectStrength[ws.toLowerCase()] = Math.floor(Math.random() * 25 + 15);
+  });
+
+  return {
+    bossName,
+    bossHp,
+    bossMaxHp,
+    defeatedSections: defeated,
+    playerXp,
+    playerLevel,
+    subjectStrength,
+  };
+}
 
 const ACADEMIC_SUBJECTS = [
   'mathematics','math','maths','science','physics','chemistry','biology',
@@ -360,7 +413,8 @@ export const getEmergency = asyncHandler(
         };
       });
       const aiTips = await aiTipsPromise;
-      ApiResponse.success(res, { mode: 'notes', items, aiTips, userContext } as EmergencyResponse);
+      const gameStats = buildGameStats(examType, weakSubjects, items, targetPercent, streakCount);
+    ApiResponse.success(res, { mode: 'notes', items, aiTips, userContext, gameStats, likelyQuestions: [] } as EmergencyResponse);
       return;
     }
 
@@ -395,7 +449,8 @@ export const getEmergency = asyncHandler(
         };
       });
       const aiTips = await aiTipsPromise;
-      ApiResponse.success(res, { mode: 'doubts', items, aiTips, userContext } as EmergencyResponse);
+      const gameStats = buildGameStats(examType, weakSubjects, items, targetPercent, streakCount);
+    ApiResponse.success(res, { mode: 'doubts', items, aiTips, userContext, gameStats, likelyQuestions: [] } as EmergencyResponse);
       return;
     }
 
@@ -430,12 +485,14 @@ export const getEmergency = asyncHandler(
         };
       });
       const aiTips = await aiTipsPromise;
-      ApiResponse.success(res, { mode: 'fallback', items, aiTips, userContext } as EmergencyResponse);
+      const gameStats = buildGameStats(examType, weakSubjects, items, targetPercent, streakCount);
+    ApiResponse.success(res, { mode: 'fallback', items, aiTips, userContext, gameStats, likelyQuestions: [] } as EmergencyResponse);
       return;
     }
 
     const aiTips = await aiTipsPromise;
-    ApiResponse.success(res, { mode: 'empty', items: [], aiTips, userContext } as EmergencyResponse);
+    const gameStats = buildGameStats(examType, weakSubjects, [], targetPercent, streakCount);
+    ApiResponse.success(res, { mode: 'empty', items: [], aiTips, userContext, gameStats, likelyQuestions: [] } as EmergencyResponse);
   }
 );
 
