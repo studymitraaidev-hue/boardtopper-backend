@@ -35,7 +35,7 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
       : req.userMessage;
 
     const result = await withTimeout(ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash',
       contents,
     }), 10000);
     if (result.text) return { text: result.text };
