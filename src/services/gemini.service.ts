@@ -17,6 +17,15 @@ export interface GeminiResponse {
   tokensUsed?: number;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Provider timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
   // 1. Try Gemini
   try {
@@ -26,10 +35,10 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
       ? req.history.map((h) => `${h.role === 'model' ? 'A' : 'Q'}: ${h.text}`).join('\n') + `\nQ: ${req.userMessage}`
       : req.userMessage;
 
-    const result = await ai.models.generateContent({
+    const result = await withTimeout(ai.models.generateContent({
       model: 'gemini-1.5-flash',
       contents,
-    });
+    }), 10000);
     if (result.text) return { text: result.text };
   } catch (e: any) {
     console.error('[Gemini primary]', e.status || e.message);
@@ -37,11 +46,11 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
 
   // 2. Try Groq
   try {
-    const { text } = await askGroq({
+    const { text } = await withTimeout(askGroq({
       systemPrompt: req.systemPrompt,
       userMessage: req.userMessage,
       history: req.history,
-    });
+    }), 10000);
     return { text };
   } catch (e: any) {
     console.error('[Gemini->Groq]', e.message);
@@ -49,11 +58,11 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
 
   // 3. Try Cerebras
   try {
-    const { text } = await askCerebras({
+    const { text } = await withTimeout(askCerebras({
       systemPrompt: req.systemPrompt,
       userMessage: req.userMessage,
       history: req.history,
-    });
+    }), 10000);
     return { text };
   } catch (e: any) {
     console.error('[Gemini->Cerebras]', e.message);
@@ -61,11 +70,11 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
 
   // 4. Try Mistral
   try {
-    const { text } = await askMistral({
+    const { text } = await withTimeout(askMistral({
       systemPrompt: req.systemPrompt,
       userMessage: req.userMessage,
       history: req.history,
-    });
+    }), 10000);
     return { text };
   } catch (e: any) {
     console.error('[Gemini->Mistral]', e.message);
@@ -73,11 +82,11 @@ export async function askGemini(req: GeminiRequest): Promise<GeminiResponse> {
 
   // 5. Try OpenRouter (last — least reliable in practice)
   try {
-    const { text } = await askOpenRouter({
+    const { text } = await withTimeout(askOpenRouter({
       systemPrompt: req.systemPrompt,
       userMessage: req.userMessage,
       history: req.history,
-    });
+    }), 10000);
     return { text };
   } catch (e: any) {
     console.error('[Gemini->OpenRouter]', e.message);
