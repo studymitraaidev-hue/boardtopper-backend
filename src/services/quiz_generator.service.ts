@@ -1,8 +1,7 @@
-import { askGroq } from './groq.service';
 import { askCloudflare } from './cloudflare.service';
-import { askOpenRouter } from './openrouter.service';
-import { askMistral } from './mistral.service';
 import { askCerebras } from './cerebras.service';
+import { askGroq } from './groq.service';
+import { askMistral } from './mistral.service';
 import logger from '../utils/logger';
 
 export interface RawQuestion {
@@ -103,9 +102,8 @@ export async function generateMCQs(params: {
 
   const providers = [
     { name: 'Cloudflare', call: () => askCloudflare({ systemPrompt: 'You create Maharashtra SSC board exam MCQs. Return ONLY valid JSON array.', userMessage: prompt }) },
-    { name: 'Groq', call: () => askGroq({ systemPrompt: 'You create Maharashtra SSC board exam MCQs. Return ONLY valid JSON array.', userMessage: prompt }) },
     { name: 'Cerebras', call: () => askCerebras({ systemPrompt: 'You create Maharashtra SSC board exam MCQs. Return ONLY valid JSON array.', userMessage: prompt }) },
-    { name: 'OpenRouter', call: () => askOpenRouter({ systemPrompt: 'You create Maharashtra SSC board exam MCQs. Return ONLY valid JSON array.', userMessage: prompt }) },
+    { name: 'Groq', call: () => askGroq({ systemPrompt: 'You create Maharashtra SSC board exam MCQs. Return ONLY valid JSON array.', userMessage: prompt }) },
     { name: 'Mistral', call: () => askMistral({ systemPrompt: 'You create Maharashtra SSC board exam MCQs. Return ONLY valid JSON array.', userMessage: prompt }) },
   ];
 
