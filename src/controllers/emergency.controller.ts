@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import logger from '../utils/logger';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
 import { findById } from '../data/users.store';
@@ -356,6 +357,35 @@ Format:
 
 // --- Controllers --------------------------------------------------------------
 
+async function buildLikelyQuestionsSummary(weakSubjects: string[], language: string): Promise<LikelyQuestion[]> {
+  if (weakSubjects.length === 0) return [];
+  const pyqResults = await Promise.allSettled(
+    weakSubjects.slice(0, 3).map(s => getPYQsBySubject(s))
+  );
+  const realPYQs: LikelyQuestion[] = pyqResults
+    .flatMap(r => r.status === 'fulfilled' ? r.value : [])
+    .sort((a, b) => b.appearedCount - a.appearedCount)
+    .slice(0, 4)
+    .map(pyq => ({
+      question:      pyq.question,
+      marks:         pyq.marks,
+      type:          'short_answer' as const,
+      subject:       canonicalSubject(pyq.subjectId),
+      chapter:       pyq.chapterId,
+      likelihood:    pyq.appearedCount >= 3 ? 'very_high' : pyq.appearedCount >= 2 ? 'high' : 'medium',
+      answerHint:    pyq.answerHint,
+      appearedYears: [pyq.year],
+      source:        'pyq' as const,
+    }));
+  let aiQuestions: LikelyQuestion[] = [];
+  try {
+    aiQuestions = await generateLikelyQuestions(weakSubjects, language);
+  } catch (e) {
+    logger.warn('[EmergencyMode] Failed to generate AI likely questions for summary');
+  }
+  return [...realPYQs, ...aiQuestions].slice(0, 6);
+}
+
 export const getEmergency = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const userId = req.user?.id;
@@ -379,6 +409,7 @@ export const getEmergency = asyncHandler(
     const chapters  = String(req.query['chapters']  || '');
     const hoursLeft = Number(req.query['hoursLeft'] || 12);
     const aiTipsPromise = generateAiTips(weakSubjects, 'Maharashtra SSC', language, examType, chapters, hoursLeft);
+    const likelyQuestionsPromise = buildLikelyQuestionsSummary(weakSubjects, language);
 
     // Step 1: Notes - weak subjects first
     const { data: noteRows, error: noteError } = await supabase
@@ -414,7 +445,7 @@ export const getEmergency = asyncHandler(
       });
       const aiTips = await aiTipsPromise;
       const gameStats = buildGameStats(examType, weakSubjects, items, targetPercent, streakCount);
-    ApiResponse.success(res, { mode: 'notes', items, aiTips, userContext, gameStats, likelyQuestions: [] } as EmergencyResponse);
+    ApiResponse.success(res, { mode: 'notes', items, aiTips, userContext, gameStats, likelyQuestions: await likelyQuestionsPromise } as EmergencyResponse);
       return;
     }
 
@@ -450,7 +481,7 @@ export const getEmergency = asyncHandler(
       });
       const aiTips = await aiTipsPromise;
       const gameStats = buildGameStats(examType, weakSubjects, items, targetPercent, streakCount);
-    ApiResponse.success(res, { mode: 'doubts', items, aiTips, userContext, gameStats, likelyQuestions: [] } as EmergencyResponse);
+    ApiResponse.success(res, { mode: 'doubts', items, aiTips, userContext, gameStats, likelyQuestions: await likelyQuestionsPromise } as EmergencyResponse);
       return;
     }
 
@@ -486,13 +517,13 @@ export const getEmergency = asyncHandler(
       });
       const aiTips = await aiTipsPromise;
       const gameStats = buildGameStats(examType, weakSubjects, items, targetPercent, streakCount);
-    ApiResponse.success(res, { mode: 'fallback', items, aiTips, userContext, gameStats, likelyQuestions: [] } as EmergencyResponse);
+    ApiResponse.success(res, { mode: 'fallback', items, aiTips, userContext, gameStats, likelyQuestions: await likelyQuestionsPromise } as EmergencyResponse);
       return;
     }
 
     const aiTips = await aiTipsPromise;
     const gameStats = buildGameStats(examType, weakSubjects, [], targetPercent, streakCount);
-    ApiResponse.success(res, { mode: 'empty', items: [], aiTips, userContext, gameStats, likelyQuestions: [] } as EmergencyResponse);
+    ApiResponse.success(res, { mode: 'empty', items: [], aiTips, userContext, gameStats, likelyQuestions: await likelyQuestionsPromise } as EmergencyResponse);
   }
 );
 
