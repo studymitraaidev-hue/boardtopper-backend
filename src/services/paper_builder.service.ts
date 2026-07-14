@@ -2,6 +2,7 @@ import { StoredPYQ } from '../data/pyqs.store';
 import { getPYQsByChapter } from '../data/pyqs.store';
 import supabase from '../config/supabase';
 import logger from '../utils/logger';
+import { generateQuestions } from './ai_paper_fill.service';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -153,7 +154,7 @@ export async function buildPaper(
   const longCount = mode === 'quick' ? 1 : Math.floor(targetMarks * 0.2 / blueprint.longMarksEach);
 
   // Build MCQ section
-  const mcqQuestions = assembleQuestions(allPYQs, 'mcq', mcqCount, blueprint.mcqMarksEach, subjectId);
+  const mcqQuestions = await assembleQuestions(allPYQs, 'mcq', mcqCount, blueprint.mcqMarksEach, subjectId, chapterIds, allPYQs);
   if (mcqQuestions.length > 0) {
     sections.push({
       name: 'Section A — Objective Questions',
@@ -168,7 +169,7 @@ export async function buildPaper(
   }
 
   // Build Very Short section
-  const vsQuestions = assembleQuestions(allPYQs, 'very_short', veryShortCount, blueprint.veryShortMarksEach, subjectId);
+  const vsQuestions = await assembleQuestions(allPYQs, 'very_short', veryShortCount, blueprint.veryShortMarksEach, subjectId, chapterIds, allPYQs);
   if (vsQuestions.length > 0) {
     sections.push({
       name: 'Section B — Very Short Answer',
@@ -183,7 +184,7 @@ export async function buildPaper(
   }
 
   // Build Short section
-  const shortQuestions = assembleQuestions(allPYQs, 'short', shortCount, blueprint.shortMarksEach, subjectId);
+  const shortQuestions = await assembleQuestions(allPYQs, 'short', shortCount, blueprint.shortMarksEach, subjectId, chapterIds, allPYQs);
   if (shortQuestions.length > 0) {
     sections.push({
       name: 'Section C — Short Answer',
@@ -198,7 +199,7 @@ export async function buildPaper(
   }
 
   // Build Long section
-  const longQuestions = assembleQuestions(allPYQs, 'long', longCount, blueprint.longMarksEach, subjectId);
+  const longQuestions = await assembleQuestions(allPYQs, 'long', longCount, blueprint.longMarksEach, subjectId, chapterIds, allPYQs);
   if (longQuestions.length > 0) {
     sections.push({
       name: 'Section D — Long Answer',
@@ -235,13 +236,15 @@ export async function buildPaper(
 
 // ─── Question Assembler ────────────────────────────────────────────────────────
 
-function assembleQuestions(
+async function assembleQuestions(
   pyqs: StoredPYQ[],
   type: 'mcq' | 'very_short' | 'short' | 'long',
   targetCount: number,
   marksEach: number,
-  subjectId: string
-): PaperQuestion[] {
+  subjectId: string,
+  chapterIds: string[],
+  allPYQs: StoredPYQ[]
+): Promise<PaperQuestion[]> {
   // Filter PYQs by approximate marks match
   const matching = pyqs.filter(p => {
     // Map marks to question type
@@ -270,8 +273,20 @@ function assembleQuestions(
     appearedYears: [p.year],
   }));
 
-  // TODO: AI fill-in for gaps (when real PYQs < targetCount)
-  // For now, return what we have — frontend handles "insufficient data" gracefully
+  // AI fill-in for gaps
+  const gap = targetCount - questions.length;
+  if (gap > 0) {
+    logger.info(`[PaperBuilder] Filling ${gap} gaps with AI for ${type}`);
+    const aiQuestions = await generateQuestions(
+      subjectId,
+      chapterIds.slice(0, 2), // Use first 2 chapters for context
+      type,
+      marksEach,
+      gap,
+      allPYQs
+    );
+    questions.push(...aiQuestions);
+  }
 
   return questions;
 }
