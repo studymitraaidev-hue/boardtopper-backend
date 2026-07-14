@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiResponse } from '../utils/ApiResponse';
+import supabase from '../config/supabase';
 import { markChapterComplete, getProgressStats } from '../data/progress.store';
 import { updateStreak } from '../utils/streak';
 import logger from '../utils/logger';
@@ -34,6 +35,13 @@ export const completeChapter = asyncHandler(
       chapterId.trim(),
       resolvedScore
     );
+
+    // Fire-and-forget event log — never blocks the response
+    supabase.from('user_events').insert({
+      user_id: userId,
+      event_type: 'task_complete',
+      metadata: { subjectId: subjectId.trim(), chapterId: chapterId.trim(), score: resolvedScore ?? null },
+    }).then(() => {}, () => {});
 
     try {
       await updateStreak(userId);
