@@ -5,7 +5,7 @@ import { buildPaperHandler, getPaperSubjects } from '../controllers/paper.contro
 const router = Router();
 
 // GET /api/papers/subjects — list available subjects for paper building
-router.get('/subjects', authenticate, getPaperSubjects);
+router.get('/subjects', getPaperSubjects);  // Public — no auth needed for subject list
 
 // POST /api/papers/build — assemble a paper from PYQs + AI
 router.post('/build', authenticate, buildPaperHandler);
