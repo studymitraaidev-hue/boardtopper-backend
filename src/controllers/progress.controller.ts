@@ -41,7 +41,9 @@ export const completeChapter = asyncHandler(
       user_id: userId,
       event_type: 'task_complete',
       metadata: { subjectId: subjectId.trim(), chapterId: chapterId.trim(), score: resolvedScore ?? null },
-    }).then(() => {}, () => {});
+    }).then(({ error }) => {
+      if (error) logger.warn('[user_events] Insert failed: ' + error.message);
+    });
 
     try {
       await updateStreak(userId);
