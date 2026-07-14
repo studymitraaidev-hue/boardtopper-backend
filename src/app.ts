@@ -55,6 +55,9 @@ import searchRoutes from './routes/search.routes';
 import notificationRoutes from './routes/notifications.routes';
 import historyRoutes from './routes/history.routes';
 
+// ── Day 35: Paper Builder (Final Boss Exams) ─────────────────────────────────
+import paperRoutes from './routes/paper.routes';
+
 // ── Day 8: Webhook handler (imported directly for pre-json registration) ──────
 import { handleWebhook } from './controllers/webhook.controller';
 
@@ -143,6 +146,9 @@ app.use('/api/search', searchRoutes);
 // ── Day 34: Notifications ─────────────────────────────────────────────────────
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/history', historyRoutes);
+
+// ── Day 35: Paper Builder ────────────────────────────────────────────────────
+app.use('/api/papers', paperRoutes);
 
 // ── 404 handler — must come after all routes ─────────────────────────────────
 app.use(notFound);
