@@ -29,10 +29,11 @@ const FALLBACK_MODELS = [
   'openai/gpt-oss-20b:free',
 ];
 
-// ─── DeepSeek Config ───────────────────────────────────────────────────────
+// ─── Hugging Face Config ───────────────────────────────────────────────────
 
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
-const DEEPSEEK_URL = 'https://api.deepseek.com/v1/chat/completions';
+const HF_TOKEN = process.env.HUGGINGFACE_TOKEN;
+const HF_MODEL = 'meta-llama/Llama-3.2-3B-Instruct';
+const HF_URL = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
 
 // ─── OpenRouter Caller ───────────────────────────────────────────────────────
 
@@ -50,36 +51,36 @@ async function askOpenRouter(model: string, messages: any[], maxTokens: number =
       timeout: 30000,
     }
   );
-
   return res.data?.choices?.[0]?.message?.content || '';
 }
 
-// ─── DeepSeek Caller ───────────────────────────────────────────────────────
+// ─── Hugging Face Caller ─────────────────────────────────────────────────────
 
-async function askDeepSeek(messages: any[], maxTokens: number = 2000): Promise<string> {
-  if (!DEEPSEEK_API_KEY) throw new Error('DeepSeek key not configured');
+async function askHuggingFace(messages: any[], maxTokens: number = 2000): Promise<string> {
+  if (!HF_TOKEN) throw new Error('Hugging Face token not configured');
 
+  const prompt = messages.map(m => m.content).join('\n\n');
   const res = await axios.post(
-    DEEPSEEK_URL,
+    HF_URL,
     {
-      model: 'deepseek-chat',
-      messages,
-      max_tokens: maxTokens,
-      temperature: 0.7,
+      inputs: prompt,
+      parameters: { max_new_tokens: maxTokens, return_full_text: false, temperature: 0.7 }
     },
     {
       headers: {
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+        'Authorization': `Bearer ${HF_TOKEN}`,
         'Content-Type': 'application/json',
       },
       timeout: 30000,
     }
   );
 
-  return res.data?.choices?.[0]?.message?.content || '';
+  // HF returns array of generated texts
+  const generated = Array.isArray(res.data) ? res.data[0] : res.data;
+  return generated?.generated_text || generated || '';
 }
 
-// ─── Retry with Fallbacks (OpenRouter → DeepSeek) ───────────────────────────
+// ─── Retry with Fallbacks (OpenRouter → Hugging Face) ───────────────────────
 
 async function askWithFallback(messages: any[], maxTokens: number = 2000): Promise<string> {
   const models = [PRIMARY_MODEL, ...FALLBACK_MODELS];
@@ -95,13 +96,13 @@ async function askWithFallback(messages: any[], maxTokens: number = 2000): Promi
     }
   }
 
-  // Final fallback: DeepSeek
+  // Final fallback: Hugging Face
   try {
-    const content = await askDeepSeek(messages, maxTokens);
-    logger.info('[AIFill] Success with DeepSeek');
+    const content = await askHuggingFace(messages, maxTokens);
+    logger.info('[AIFill] Success with Hugging Face');
     return content;
   } catch (err) {
-    logger.warn('[AIFill] DeepSeek failed');
+    logger.warn('[AIFill] Hugging Face failed');
   }
 
   throw new Error('All AI models failed');
@@ -180,7 +181,6 @@ function parseAIResponse(
   type: 'mcq' | 'very_short' | 'short' | 'long',
   marksEach: number
 ): AIGeneratedQuestion[] {
-  // Extract JSON from markdown code blocks if present
   const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || response.match(/(\[[\s\S]*\])/);
   const jsonStr = jsonMatch ? jsonMatch[1].trim() : response.trim();
 
@@ -213,7 +213,7 @@ export async function generateQuestions(
   subjectName?: string,
   chapterNames?: string[]
 ): Promise<AIGeneratedQuestion[]> {
-  if (count <= 0) return [];
+  if (count <= 0) return generateTemplateQuestions(subjectId, chapterIds, type, marksEach, count);
 
   logger.info(`[AIFill] Generating ${count} ${type} questions (${marksEach} marks each) for ${subjectId}`);
 
@@ -228,9 +228,79 @@ export async function generateQuestions(
     logger.info(`[AIFill] Generated ${parsed.length} questions via AI`);
     return parsed;
   } catch (err) {
-    logger.error('[AIFill] AI generation failed, returning empty', err);
-    return [];
+    logger.error('[AIFill] AI generation failed, using template fallback', err);
+    return generateTemplateQuestions(subjectId, chapterIds, type, marksEach, count);
   }
 }
 
 export default { generateQuestions };
+
+// ─── Template Fallback (guaranteed, lower quality) ─────────────────────────
+
+const TEMPLATE_QUESTIONS: Record<string, Record<string, string[]>> = {
+  algebra: {
+    mcq: [
+      'Which of the following is the standard form of a quadratic equation?',
+      'The discriminant of ax² + bx + c = 0 is:',
+      'If the roots of x² - 5x + 6 = 0 are α and β, then α + β =',
+      'The common difference of AP: 2, 5, 8, 11... is:',
+      'Which term of AP 3, 8, 13, 18... is 78?',
+    ],
+  },
+  geometry: {
+    mcq: [
+      'In similar triangles, the ratio of corresponding sides is equal to:',
+      'The Pythagorean theorem states that in a right triangle:',
+      'The angle subtended by a diameter at any point on the circle is:',
+    ],
+  },
+  science1: {
+    mcq: [
+      'The SI unit of gravitational constant G is:',
+      "Ohm's law states that:",
+      'The chemical formula of water is:',
+    ],
+  },
+  science2: {
+    mcq: [
+      "Mendel's law of segregation states that:",
+      'The process of photosynthesis occurs in:',
+      'Greenhouse effect is caused by excess of:',
+    ],
+  },
+  english: {
+    mcq: [
+      'The correct form of the verb: "She ___ to school every day."',
+      'Identify the figure of speech: "Her voice is music to my ears."',
+      'The antonym of "brave" is:',
+    ],
+  },
+};
+
+export function generateTemplateQuestions(
+  subjectId: string,
+  chapterIds: string[],
+  type: 'mcq' | 'very_short' | 'short' | 'long',
+  marksEach: number,
+  count: number
+): AIGeneratedQuestion[] {
+  const subjectTemplates = TEMPLATE_QUESTIONS[subjectId] || TEMPLATE_QUESTIONS['algebra'];
+  const typeTemplates = subjectTemplates[type] || subjectTemplates['mcq'] || [];
+  const questions: AIGeneratedQuestion[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const template = typeTemplates[i % typeTemplates.length];
+    questions.push({
+      id: `template-${subjectId}-${type}-${i}`,
+      question: `${template} [Template Fallback]`,
+      marks: marksEach,
+      type,
+      chapterId: chapterIds[i % chapterIds.length],
+      subjectId,
+      answerHint: 'Refer to your textbook for the exact formula.',
+      source: 'ai',
+      options: type === 'mcq' ? ['Option A', 'Option B', 'Option C', 'Option D'] : undefined,
+    });
+  }
+  return questions;
+}
