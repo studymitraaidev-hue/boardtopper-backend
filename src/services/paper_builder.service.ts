@@ -1,8 +1,10 @@
 import { StoredPYQ } from '../data/pyqs.store';
 import { getPYQsByChapter } from '../data/pyqs.store';
+import { getChapterById } from '../data/chapters.store';
 import supabase from '../config/supabase';
 import logger from '../utils/logger';
 import { generateQuestions } from './ai_paper_fill.service';
+import { getCachedQuestionsBySubject, GeneratedQuestion } from '../data/generated_questions.store';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -34,6 +36,7 @@ export interface PaperQuestion {
   source: 'pyq' | 'ai';
   appearedYears?: number[];
   options?: string[]; // for MCQ
+  correctIndex?: number; // for MCQ — which option is correct (0-3)
 }
 
 export interface BuiltPaper {
@@ -130,6 +133,8 @@ export async function buildPaper(
     logger.error(`[PaperBuilder] Cannot build paper — no blueprint for ${subjectId}`);
     return null;
   }
+  
+  const usedIds = new Set<string>(); // Track questions to prevent duplicates
 
   // Fetch all real PYQs for selected chapters
   const pyqPromises = chapterIds.map(chId => getPYQsByChapter(chId));
@@ -154,7 +159,7 @@ export async function buildPaper(
   const longCount = mode === 'quick' ? 1 : Math.floor(targetMarks * 0.2 / blueprint.longMarksEach);
 
   // Build MCQ section
-  const mcqQuestions = await assembleQuestions(allPYQs, 'mcq', mcqCount, blueprint.mcqMarksEach, subjectId, chapterIds, allPYQs);
+  const mcqQuestions = await assembleQuestions(allPYQs, 'mcq', mcqCount, blueprint.mcqMarksEach, subjectId, chapterIds, allPYQs, usedIds);
   if (mcqQuestions.length > 0) {
     sections.push({
       name: 'Section A — Objective Questions',
@@ -169,7 +174,7 @@ export async function buildPaper(
   }
 
   // Build Very Short section
-  const vsQuestions = await assembleQuestions(allPYQs, 'very_short', veryShortCount, blueprint.veryShortMarksEach, subjectId, chapterIds, allPYQs);
+  const vsQuestions = await assembleQuestions(allPYQs, 'very_short', veryShortCount, blueprint.veryShortMarksEach, subjectId, chapterIds, allPYQs, usedIds);
   if (vsQuestions.length > 0) {
     sections.push({
       name: 'Section B — Very Short Answer',
@@ -184,7 +189,7 @@ export async function buildPaper(
   }
 
   // Build Short section
-  const shortQuestions = await assembleQuestions(allPYQs, 'short', shortCount, blueprint.shortMarksEach, subjectId, chapterIds, allPYQs);
+  const shortQuestions = await assembleQuestions(allPYQs, 'short', shortCount, blueprint.shortMarksEach, subjectId, chapterIds, allPYQs, usedIds);
   if (shortQuestions.length > 0) {
     sections.push({
       name: 'Section C — Short Answer',
@@ -199,7 +204,7 @@ export async function buildPaper(
   }
 
   // Build Long section
-  const longQuestions = await assembleQuestions(allPYQs, 'long', longCount, blueprint.longMarksEach, subjectId, chapterIds, allPYQs);
+  const longQuestions = await assembleQuestions(allPYQs, 'long', longCount, blueprint.longMarksEach, subjectId, chapterIds, allPYQs, usedIds);
   if (longQuestions.length > 0) {
     sections.push({
       name: 'Section D — Long Answer',
@@ -243,8 +248,35 @@ async function assembleQuestions(
   marksEach: number,
   subjectId: string,
   chapterIds: string[],
-  allPYQs: StoredPYQ[]
+  allPYQs: StoredPYQ[],
+  usedIds: Set<string> = new Set()
 ): Promise<PaperQuestion[]> {
+  // For MCQs: try generated_questions cache first
+  if (type === 'mcq') {
+    try {
+      const cached = await getCachedQuestionsBySubject(subjectId, targetCount * 2);
+      const filtered = cached.filter(q => chapterIds.includes(q.chapterId) && !usedIds.has(q.id));
+      if (filtered.length >= targetCount) {
+        const picked = filtered.slice(0, targetCount);
+        picked.forEach(q => usedIds.add(q.id));
+        return picked.map(q => ({
+          id: q.id,
+          question: q.question,
+          marks: marksEach,
+          type,
+          chapterId: q.chapterId,
+          subjectId: q.subjectId,
+          answerHint: `Correct: Option ${String.fromCharCode(65 + q.correctIndex)}`,
+          source: 'ai',
+          options: q.options,
+          correctIndex: q.correctIndex,
+        }));
+      }
+    } catch (err) {
+      logger.warn('[PaperBuilder] Cache miss for MCQs, falling back to PYQs', err);
+    }
+  }
+
   // Filter PYQs by approximate marks match
   const matching = pyqs.filter(p => {
     // Map marks to question type
@@ -256,7 +288,7 @@ async function assembleQuestions(
   });
 
   // Sort by appearedCount (higher = more likely to repeat) then randomize
-  const sorted = matching.sort((a, b) => b.appearedCount - a.appearedCount);
+  const sorted = matching.sort((a, b) => a.appearedCount - b.appearedCount);
   
   // Take top questions, fill with AI if needed
   const selected = sorted.slice(0, targetCount);
@@ -272,6 +304,9 @@ async function assembleQuestions(
     source: 'pyq',
     appearedYears: [p.year],
   }));
+  
+  // Prevent cross-section duplicates
+  questions.forEach(q => usedIds.add(q.id));
 
   // AI fill-in for gaps
   const gap = targetCount - questions.length;
@@ -279,13 +314,15 @@ async function assembleQuestions(
     logger.info(`[PaperBuilder] Filling ${gap} gaps with AI for ${type}`);
     const aiQuestions = await generateQuestions(
       subjectId,
-      chapterIds.slice(0, 2), // Use first 2 chapters for context
+      chapterIds.slice(0, 2),
       type,
       marksEach,
       gap,
       allPYQs
     );
-    questions.push(...aiQuestions);
+    const uniqueAi = aiQuestions.filter(q => !usedIds.has(q.id));
+    uniqueAi.forEach(q => usedIds.add(q.id));
+    questions.push(...uniqueAi);
   }
 
   return questions;
