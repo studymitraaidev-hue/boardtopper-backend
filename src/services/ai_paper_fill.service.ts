@@ -182,7 +182,9 @@ function parseAIResponse(
   marksEach: number
 ): AIGeneratedQuestion[] {
   const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || response.match(/(\[[\s\S]*\])/);
-  const jsonStr = jsonMatch ? jsonMatch[1].trim() : response.trim();
+  let jsonStr = jsonMatch ? jsonMatch[1].trim() : response.trim();
+  // Sanitize invalid JSON escapes (AI often emits LaTeX-style backslashes like \frac, \( )
+  jsonStr = jsonStr.replace(/\\(?!["\\/bfnrtu])/g, '\\\\');
 
   const parsed = JSON.parse(jsonStr);
   const questions = Array.isArray(parsed) ? parsed : [parsed];
