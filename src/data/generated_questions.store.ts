@@ -124,3 +124,21 @@ export async function getCachedQuestionsBySubject(
   const all = (data as DBRow[]).map(toQuestion);
   return shuffleArray(all).slice(0, limit);
 }
+
+/** Fetch cached questions by subject, ignoring expiry, with exclusion and true randomness */
+export async function getCachedQuestionsBySubjectAny(
+  subjectId: string,
+  limit: number,
+  excludeIds: string[] = []
+): Promise<GeneratedQuestion[]> {
+  const { data, error } = await supabase
+    .from('generated_questions')
+    .select('*')
+    .eq('subject_id', subjectId)
+    .not('id', 'in', `(${excludeIds.join(',')})`)
+    .limit(200);
+
+  if (error || !data || data.length === 0) return [];
+  const all = (data as DBRow[]).map(toQuestion);
+  return shuffleArray(all).slice(0, limit);
+}

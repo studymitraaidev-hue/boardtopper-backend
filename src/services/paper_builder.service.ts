@@ -32,8 +32,8 @@ export interface PaperQuestion {
   type: 'mcq' | 'very_short' | 'short' | 'long';
   chapterId: string;
   subjectId: string;
-  answerHint: string;
-  source: 'pyq' | 'ai';
+  answerHint?: string;
+  source: 'pyq' | 'ai' | 'db_cache' | 'template';
   appearedYears?: number[];
   options?: string[]; // for MCQ
   correctIndex?: number; // for MCQ — which option is correct (0-3)

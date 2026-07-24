@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { StoredPYQ } from '../data/pyqs.store';
 import logger from '../utils/logger';
+import { getCachedQuestionsBySubjectAny } from '../data/generated_questions.store';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -11,8 +12,8 @@ export interface AIGeneratedQuestion {
   type: 'mcq' | 'very_short' | 'short' | 'long';
   chapterId: string;
   subjectId: string;
-  answerHint: string;
-  source: 'ai';
+  answerHint?: string;
+  source: 'ai' | 'db_cache' | 'template';
   options?: string[];
   correctIndex?: number;
 }
@@ -230,7 +231,33 @@ export async function generateQuestions(
     logger.info(`[AIFill] Generated ${parsed.length} questions via AI`);
     return parsed;
   } catch (err) {
-    logger.error('[AIFill] AI generation failed, using template fallback', err);
+    logger.error('[AIFill] AI generation failed, trying DB cache fallback', err);
+    
+    // DB cache fallback (real questions with correct answers) — MCQ only
+    if (type === 'mcq') {
+      try {
+        const cached = await getCachedQuestionsBySubjectAny(subjectId, count);
+        if (cached.length > 0) {
+          logger.info(`[AIFill] Filled ${cached.length} MCQs from DB cache`);
+          return cached.map(q => ({
+            id: q.id,
+            subjectId: q.subjectId,
+            chapterId: q.chapterId,
+            question: q.question,
+            type: 'mcq' as const,
+            marks: marksEach,
+            source: 'db_cache' as const,
+            options: q.options,
+            correctIndex: q.correctIndex,
+            answerHint: 'Refer to your textbook for detailed explanation.',
+          }));
+        }
+      } catch (cacheErr) {
+        logger.error('[AIFill] DB cache fallback also failed', cacheErr);
+      }
+    }
+    
+    logger.warn('[AIFill] Using template fallback as last resort');
     return generateTemplateQuestions(subjectId, chapterIds, type, marksEach, count);
   }
 }
@@ -300,8 +327,9 @@ export function generateTemplateQuestions(
       chapterId: chapterIds[i % chapterIds.length],
       subjectId,
       answerHint: 'Refer to your textbook for the exact formula.',
-      source: 'ai',
+      source: 'template',
       options: type === 'mcq' ? ['Option A', 'Option B', 'Option C', 'Option D'] : undefined,
+      correctIndex: type === 'mcq' ? 0 : undefined,
     });
   }
   return questions;
