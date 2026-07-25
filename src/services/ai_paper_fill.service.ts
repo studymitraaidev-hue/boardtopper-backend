@@ -329,7 +329,7 @@ export function generateTemplateQuestions(
       answerHint: 'Refer to your textbook for the exact formula.',
       source: 'template',
       options: type === 'mcq' ? ['Option A', 'Option B', 'Option C', 'Option D'] : undefined,
-      correctIndex: type === 'mcq' ? 0 : undefined,
+      correctIndex: type === 'mcq' ? Math.floor(Math.random() * 4) : undefined,
     });
   }
   return questions;

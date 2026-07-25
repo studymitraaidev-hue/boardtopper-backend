@@ -4,7 +4,7 @@ import { getChapterById } from '../data/chapters.store';
 import supabase from '../config/supabase';
 import logger from '../utils/logger';
 import { generateQuestions } from './ai_paper_fill.service';
-import { getCachedQuestionsBySubject, GeneratedQuestion } from '../data/generated_questions.store';
+import { getCachedQuestionsBySubject, getCachedQuestionsBySubjectAny, GeneratedQuestion } from '../data/generated_questions.store';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -254,7 +254,7 @@ async function assembleQuestions(
   // For MCQs: try generated_questions cache first
   if (type === 'mcq') {
     try {
-      const cached = await getCachedQuestionsBySubject(subjectId, targetCount * 2);
+      const cached = await getCachedQuestionsBySubjectAny(subjectId, targetCount * 2, Array.from(usedIds));
       const filtered = cached.filter(q => chapterIds.includes(q.chapterId) && !usedIds.has(q.id));
       if (filtered.length >= targetCount) {
         const picked = filtered.slice(0, targetCount);

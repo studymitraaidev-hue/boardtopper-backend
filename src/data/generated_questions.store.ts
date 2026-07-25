@@ -131,12 +131,17 @@ export async function getCachedQuestionsBySubjectAny(
   limit: number,
   excludeIds: string[] = []
 ): Promise<GeneratedQuestion[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from('generated_questions')
     .select('*')
     .eq('subject_id', subjectId)
-    .not('id', 'in', `(${excludeIds.join(',')})`)
     .limit(200);
+
+  if (excludeIds.length > 0) {
+    query = query.not('id', 'in', `(${excludeIds.join(',')})`);
+  }
+
+  const { data, error } = await query;
 
   if (error || !data || data.length === 0) return [];
   const all = (data as DBRow[]).map(toQuestion);
