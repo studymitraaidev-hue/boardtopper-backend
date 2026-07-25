@@ -57,6 +57,7 @@ import historyRoutes from './routes/history.routes';
 
 // ── Day 35: Paper Builder (Final Boss Exams) ─────────────────────────────────
 import paperRoutes from './routes/paper.routes';
+import selfCheckRoutes from './routes/self_check.routes';
 
 // ── Day 8: Webhook handler (imported directly for pre-json registration) ──────
 import { handleWebhook } from './controllers/webhook.controller';
@@ -149,6 +150,7 @@ app.use('/api/history', historyRoutes);
 
 // ── Day 35: Paper Builder ────────────────────────────────────────────────────
 app.use('/api/papers', paperRoutes);
+app.use('/api/self-checks', selfCheckRoutes);
 
 // ── 404 handler — must come after all routes ─────────────────────────────────
 app.use(notFound);
