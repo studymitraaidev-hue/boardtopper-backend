@@ -219,6 +219,16 @@ export async function buildPaper(
   }
 
   const totalMarks = sections.reduce((sum, s) => sum + s.totalMarks, 0);
+
+  // Safeguard: if no sections were built, log why and return null
+  if (sections.length === 0) {
+    logger.error(`[PaperBuilder] Paper has 0 sections for ${subjectId}. ` +
+      `PYQs: ${allPYQs.length}, ` +
+      `mcqCount: ${mcqCount}, vsCount: ${veryShortCount}, shortCount: ${shortCount}, longCount: ${longCount}, ` +
+      `chapters: ${chapterIds.length}`);
+    return null;
+  }
+
   const boss = BOSS_DATA[subjectId] || { name: 'Unknown Boss', emoji: '❓', title: 'Mystery' };
 
   const subjectName = await getSubjectName(subjectId);
@@ -267,7 +277,7 @@ async function assembleQuestions(
           chapterId: q.chapterId,
           subjectId: q.subjectId,
           answerHint: `Correct: Option ${String.fromCharCode(65 + q.correctIndex)}`,
-          source: 'ai',
+          source: 'db_cache',
           options: q.options,
           correctIndex: q.correctIndex,
         }));
