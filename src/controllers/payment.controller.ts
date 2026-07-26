@@ -273,8 +273,8 @@ export const getSubscriptionStatus = asyncHandler(
     const subscription = await getValidSubscription(userId);
 
     ApiResponse.success(res, {
-      plan:         user.plan,
-      isPro:        user.plan === 'pro',
+      plan:         subscription ? 'pro' : 'free',
+      isPro:        !!subscription,
       subscription: subscription
         ? {
             id:      subscription.id,
