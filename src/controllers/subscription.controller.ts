@@ -15,7 +15,14 @@ export const runExpireCron = asyncHandler(
     const cronSecret = req.headers['x-cron-secret'];
     const expected = process.env.CRON_SECRET;
 
-    if (expected && cronSecret !== expected) {
+    // Fail closed: if CRON_SECRET isn't configured, refuse rather than
+    // silently allowing unauthenticated access to a bulk-downgrade endpoint.
+    if (!expected) {
+      logger.error('[ExpireCron] CRON_SECRET not configured — refusing request');
+      ApiResponse.error(res, 'Server misconfiguration', 500);
+      return;
+    }
+    if (cronSecret !== expected) {
       ApiResponse.error(res, 'Unauthorized', 401);
       return;
     }
