@@ -1,4 +1,6 @@
 import supabase from '../config/supabase';
+import { updateUser } from './users.store';
+import logger from '../utils/logger';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,10 +50,11 @@ function toStoredSubscription(row: SubscriptionRow): StoredSubscription {
 
 function calcEndsAt(plan: 'monthly' | 'yearly'): Date {
   const d = new Date();
+  const msPerDay = 24 * 60 * 60 * 1000;
   if (plan === 'yearly') {
-    d.setFullYear(d.getFullYear() + 1);
+    d.setTime(d.getTime() + (365 * msPerDay));   // 365 days
   } else {
-    d.setMonth(d.getMonth() + 1);
+    d.setTime(d.getTime() + (30 * msPerDay));     // 30 days
   }
   return d;
 }
@@ -180,7 +183,7 @@ export async function getValidSubscription(
     .from('subscriptions')
     .select('*')
     .eq('user_id', userId)
-    .in('status', ['active', 'cancelled'])
+    .eq('status', 'active')
     .gt('ends_at', new Date().toISOString())
     .order('created_at', { ascending: false })
     .limit(1)
@@ -188,4 +191,62 @@ export async function getValidSubscription(
 
   if (error || !data) return undefined;
   return toStoredSubscription(data as SubscriptionRow);
+}
+
+/**
+ * Cron job: find all subscriptions where ends_at < now and status = 'active',
+ * mark them 'expired', and downgrade users to 'free' plan.
+ * Should be called daily via a cron job or startup check.
+ */
+export async function expireExpiredSubscriptions(): Promise<{
+  expiredCount: number;
+  downgradedCount: number;
+}> {
+  const now = new Date().toISOString();
+
+  // 1. Find all expired active subscriptions
+  const { data: expiredRows, error } = await supabase
+    .from('subscriptions')
+    .select('id, user_id')
+    .eq('status', 'active')
+    .lt('ends_at', now);
+
+  if (error || !expiredRows || expiredRows.length === 0) {
+    return { expiredCount: 0, downgradedCount: 0 };
+  }
+
+  const expiredIds = expiredRows.map((r: any) => r.id);
+  const userIds = [...new Set(expiredRows.map((r: any) => r.user_id as string))];
+
+  // 2. Mark subscriptions expired
+  const { error: updateError } = await supabase
+    .from('subscriptions')
+    .update({ status: 'expired' })
+    .in('id', expiredIds);
+
+  if (updateError) {
+    logger.error('[ExpireSubs] Failed to mark subscriptions expired:', updateError);
+    return { expiredCount: 0, downgradedCount: 0 };
+  }
+
+  // 3. Downgrade users to 'free' — but only if they have no OTHER active subscription
+  let downgradedCount = 0;
+  for (const userId of userIds) {
+    const { data: stillActive } = await supabase
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .limit(1)
+      .single();
+
+    if (!stillActive) {
+      await updateUser(userId, { plan: 'free' });
+      downgradedCount++;
+      logger.info(`[ExpireSubs] Downgraded user ${userId} to free plan`);
+    }
+  }
+
+  logger.info(`[ExpireSubs] Expired ${expiredIds.length} subscriptions, downgraded ${downgradedCount} users`);
+  return { expiredCount: expiredIds.length, downgradedCount };
 }

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ApiResponse } from '../utils/ApiResponse';
 import { getValidSubscription } from '../data/subscriptions.store';
+import logger from '../utils/logger';
 
 /**
  * requirePro — server-side guard for Pro-only routes.
@@ -25,24 +26,18 @@ export function requirePro(
     return;
   }
 
-
-  // Second gate: verify subscription is still active in DB (not expired/cancelled)
-  // This is async — we need to use promise-based logic here
+  // Strict gate: must have a valid active subscription in DB
   getValidSubscription(req.user.id)
     .then((sub) => {
-      const { findById } = require('../data/users.store');
-      return findById(req.user!.id).then((dbUser: any) => {
-        if (!sub && dbUser?.plan !== 'pro') {
-          ApiResponse.error(res, 'Your Pro subscription has expired or been cancelled. Renew at boardtopper.ai/pricing.', 403);
-          return;
-        }
-        next();
-      });
-    })
-    .catch(() => {
-      // DB error — fail open with a warning (don't block legitimate Pro users on DB blip)
-      // In production you may prefer to fail closed depending on risk tolerance
+      if (!sub) {
+        ApiResponse.error(res, 'Your Pro subscription has expired or been cancelled. Renew at boardtopper.ai/pricing.', 403);
+        return;
+      }
       next();
+    })
+    .catch((err) => {
+      logger.error('[requirePro] DB error checking subscription:', err);
+      ApiResponse.error(res, 'Unable to verify subscription. Please try again.', 503);
     });
 }
 

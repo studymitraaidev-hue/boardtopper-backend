@@ -25,6 +25,7 @@ export interface AuthUser {
   emailVerified: boolean;
   onboardingComplete: boolean;
   emergencyTrialUsed: boolean;
+  subscriptionExpiresAt: string | null;  // ISO date when Pro expires, null if free
 }
 
 // ─── Academic data ────────────────────────────────────────────────────────────

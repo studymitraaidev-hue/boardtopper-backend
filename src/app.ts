@@ -38,6 +38,7 @@ import progressRoutes from './routes/progress.routes';
 // ── Stage 14+ routes (new features) ──────────────────────────────────────────
 import quizRoutes       from './routes/quiz.routes';
 import emergencyRoutes  from './routes/emergency.routes';
+import subscriptionRoutes from './routes/subscription.routes';
 
 // ── Day 5: Dashboard Intelligence ─────────────────────────────────────────────
 import dashboardRoutes  from './routes/dashboard.routes';
@@ -131,6 +132,7 @@ app.use('/api/progress', progressRoutes);
 // ── Stage 14+: Quiz Attempts, Emergency Mode (Pro) ──────────
 app.use('/api/quiz',      quizRoutes);
 app.use('/api/emergency', emergencyRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
 
 // ── Day 5: Dashboard Intelligence ─────────────────────────────────────────────
 app.use('/api/dashboard', dashboardRoutes);

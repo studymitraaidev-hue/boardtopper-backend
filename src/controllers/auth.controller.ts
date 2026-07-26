@@ -13,6 +13,7 @@ import {
   updateUser,
 } from '../data/users.store';
 import type { StoredUser } from '../data/users.store';
+import { getValidSubscription } from '../data/subscriptions.store';
 import {
   sendWelcomeEmail,
   sendLoginNotificationEmail,
@@ -35,7 +36,7 @@ import {
 
 // ─── Shape helpers ────────────────────────────────────────────────────────────
 
-export function toAuthUser(user: StoredUser): AuthUser {
+export function toAuthUser(user: StoredUser, subExpiresAt: string | null = null): AuthUser {
   return {
     id:            user.id,
     name:          user.name,
@@ -49,6 +50,7 @@ export function toAuthUser(user: StoredUser): AuthUser {
     emailVerified: user.emailVerified,
     onboardingComplete: user.onboardingComplete,
     emergencyTrialUsed: user.emergencyTrialUsed,
+    subscriptionExpiresAt: subExpiresAt,
   };
 }
 
@@ -169,7 +171,8 @@ export const getMe = asyncHandler(
       ApiResponse.error(res, 'User not found', 404);
       return;
     }
-    ApiResponse.success(res, { user: toAuthUser(user) });
+    const sub = await getValidSubscription(req.user!.id);
+    ApiResponse.success(res, { user: toAuthUser(user, sub?.endsAt.toISOString() ?? null) });
   },
 );
 
