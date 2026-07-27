@@ -2,7 +2,7 @@ name: Keep Render Awake
 
 on:
   schedule:
-    - cron: '*/10 * * * *'   # Every 10 minutes
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Ping BoardTopper Backend
         run: |
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}"             https://boardtopper-backend.onrender.com/api/health             || echo "000")
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}"             https://boardtopper-backend.onrender.com/api/auth/me             || echo "000")
           echo "Health check returned: $HTTP_CODE"
           if [ "$HTTP_CODE" != "200" ]; then
             echo "Backend may be down or sleeping"
