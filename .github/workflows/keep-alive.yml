@@ -2,19 +2,18 @@ name: Keep Render Awake
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/5 * * * *'   # Every 5 minutes (was 10)
   workflow_dispatch:
 
 jobs:
   ping-backend:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping BoardTopper Backend
-        run: |
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}"             https://boardtopper-backend.onrender.com/api/auth/me             || echo "000")
-          echo "Health check returned: $HTTP_CODE"
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Backend may be down or sleeping"
-            exit 0
-          fi
-          echo "Backend is awake and responding"
+      - name: Ping Auth endpoint
+        run: curl -s https://boardtopper-backend.onrender.com/api/auth/me > /dev/null
+      - name: Ping Emergency endpoint  
+        run: curl -s "https://boardtopper-backend.onrender.com/api/emergency?examType=quick&hoursLeft=24" > /dev/null
+      - name: Ping Papers endpoint
+        run: curl -s https://boardtopper-backend.onrender.com/api/papers/build > /dev/null
+      - name: Ping Health/Status
+        run: curl -s https://boardtopper-backend.onrender.com/api/payments/subscription-status > /dev/null
