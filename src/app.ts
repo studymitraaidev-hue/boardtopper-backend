@@ -163,5 +163,11 @@ Sentry.setupExpressErrorHandler(app);
 // ── Global error handler — must be last ──────────────────────────────────────
 app.use(errorHandler);
 
+
+// Health check for UptimeRobot - NO AUTH needed
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 export default app;
 
